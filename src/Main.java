@@ -7,7 +7,7 @@ import java.util.HashMap;
  */
 public class Main {
     /** {@code vπ(s)}: Given a state s, returns the discounted stateToReward of that state assuming {@link #policy} is followed */
-    private static final HashMap<Integer,Double> stateValueFunction;
+    private static HashMap<Integer,Double> stateValueFunction;
 
     /** {@code qπ(s,a)}: Given a state s and an action a, returns the discounted stateToReward of the next states assuming {@link #policy} is followed */
     private static final HashMap<intPairs,Double> actionValueFunction;
@@ -44,9 +44,18 @@ public class Main {
 
     }
 
-    public static void updateStateValueFunction(){
-        //todo implement reiterating and reassigning the state-value function according to the bellman's equation
+    /** Creates a new policy that is deterministic and greedy with respect to the state value function */
+    public static void improvePolicy(){
+        //todo implement
+    }
 
+    /** Reiterates and reassign the state-value function according to the bellman's equation */
+    public static void updateStateValueFunction(){
+        HashMap<Integer,Double> newStateValueFunction = new HashMap<>();
+        for(int i=0;i<=100;i++){
+            newStateValueFunction.put(i,updateStateValue(i));
+        }
+        stateValueFunction = newStateValueFunction;
     }
 
     public static double updateStateValue(int state){
