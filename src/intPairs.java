@@ -21,6 +21,11 @@ public class intPairs {
     }
 
     @Override
+    public String toString() {
+        return "("+first()+" | "+second()+")";
+    }
+
+    @Override
     public boolean equals(Object obj) {
         return obj instanceof intPairs && combined == ((intPairs) obj).combined;
     }
