@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.function.BiFunction;
 
 /**
  * A state is represented as an int s where the gambler has (s) amount of dollars<br>
@@ -14,7 +15,7 @@ public class Main {
 
     /** {@code r}: In this instance, the stateToReward is associated purely to a state, however in most
      * cases it is associated with a state-action pair (s,a) or a state transition (s,a,s') */
-    private static final HashMap<Integer, Double> stateToReward;
+    private static final BiFunction<intPairs,Integer,Double> stateTransitionToReward = (stateActionPair, nextState) -> (nextState == 100 ? 1.0 : 0.0);
 
     /** The probability that the imaginary coin flip lands on head and the gambler wins his gambled money */
     private static final double probWinGamble = 0.4;
@@ -23,18 +24,12 @@ public class Main {
     static {
         stateValueFunction = new HashMap<>();
         policy = new HashMap<>();
-        stateToReward = new HashMap<>();
 
-        stateValueFunction.put(0, 0.0);
-        stateToReward.put(0, 0.0);
         for (int state = 1; state < 100; state++) {
             stateValueFunction.put(state, 0.0);
-            stateToReward.put(state, 0.0);
             for (int action = 1; action <= Math.min(state, 100 - state); action++)
                 policy.put(new intPairs(state, action), 1.0 / state);
         }
-        stateToReward.put(100, 1.0);
-        stateValueFunction.put(100, 1.0);
     }
 
     public static void main(String[] args) {
@@ -78,9 +73,9 @@ public class Main {
             double actionValue = 0;
             for (int nextState : new int[]{state + action, state - action}) {
                 //stateToReward is defined by the nextState
-                double reward = stateToReward.get(nextState);
+                double reward = stateTransitionToReward.apply(new intPairs(state,action),nextState);
                 //p(s',r|s,a) = (winning ? probWinGamble : 1 - probWinGamble)
-                actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.get(nextState));
+                actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.getOrDefault(nextState,0.0));
             }
 
             if (actionValue > maxActionValue) {
@@ -97,8 +92,6 @@ public class Main {
         for (int i = 1; i < 100; i++) {
             newStateValueFunction.put(i, updateStateValue(i));
         }
-        newStateValueFunction.put(0, stateValueFunction.get(0));
-        newStateValueFunction.put(100, stateValueFunction.get(100));
         stateValueFunction = newStateValueFunction;
     }
 
@@ -106,14 +99,14 @@ public class Main {
      * Also updates the output of action-value function of all outgoing actions from this state */
     public static double updateStateValue(int state) {
         double newStateValue = 0;
-        double reward = stateToReward.get(state);
         for (int action = 1; action <= Math.min(state, 100 - state); action++) {
             //the gambler bets (action) amount of money, possible states are either win or lose that money
             double actionValue = 0;
             for (int nextState : new int[]{state + action, state - action}) {
                 //stateToReward is defined by the nextState
+                double reward = stateTransitionToReward.apply(new intPairs(state,action),nextState);
                 //p(s',r|s,a) = (winning ? probWinGamble : 1 - probWinGamble)
-                actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.get(nextState));
+                actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.getOrDefault(nextState,0.0));
             }
 
             newStateValue += policy.get(new intPairs(state, action)) * actionValue;
