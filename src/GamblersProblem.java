@@ -2,12 +2,17 @@ import java.util.HashMap;
 import java.util.function.BiFunction;
 
 /**
+ * A {@code Discrete Model-Based Markov-Decision-Process (MDP)} where the problem statement is defined as a
+ * gambler trying to reach 100$ by betting anything up to min(x,100-x) where x is their current wealth, and winning
+ * their bet by a chance of {@link #probWinGamble}. This code uses value iteration to solve and find
+ * (one of) the optimal strategy to do so.<br>
  * A state is represented as an int s where the gambler has (s) amount of dollars<br>
  * An Action is represented as an int a <= min(s,100-s) where the gambler will bet (a) amount of dollars<br>
- * A Reward is represented as a double and is associated purely to a state s
+ * A Reward is associated to a state-transition (s,a,s') where if s' = 100 then
+ * reward is 1, otherwise reward is 0.
  */
-public class Main {
-    /** {@code vπ(s)}: Given a state s, returns the discounted stateToReward of that state assuming {@link #policy} is followed */
+public class GamblersProblem {
+    /** {@code vπ(s)}: Given a state s, returns the expected future reward of that state assuming {@link #policy} is followed afterward */
     private static HashMap<Integer, Double> stateValueFunction;
 
     /** {@code π(s)}: Given a state s, returns the greedy deterministic action to take for that state */
@@ -15,7 +20,7 @@ public class Main {
 
     /** {@code r}: In this instance, the stateToReward is associated purely to a state, however in most
      * cases it is associated with a state-action pair (s,a) or a state transition (s,a,s') */
-    private static final BiFunction<intPairs,Integer,Double> stateTransitionToReward = (stateActionPair, nextState) -> (nextState == 100 ? 1.0 : 0.0);
+    private static final BiFunction<stateActionPairs<Integer,Integer>,Integer,Double> stateTransitionToReward = (stateActionPair, nextState) -> (nextState == 100 ? 1.0 : 0.0);
 
     /** The probability that the imaginary coin flip lands on head and the gambler wins his gambled money */
     private static final double probWinGamble = 0.4;
@@ -70,7 +75,7 @@ public class Main {
             double actionValue = 0;
             for (int nextState : new int[]{state + action, state - action}) {
                 //stateToReward is defined by the nextState
-                double reward = stateTransitionToReward.apply(new intPairs(state,action),nextState);
+                double reward = stateTransitionToReward.apply(new stateActionPairs<>(state, action),nextState);
                 //p(s',r|s,a) = (winning ? probWinGamble : 1 - probWinGamble)
                 actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.getOrDefault(nextState,0.0));
             }
@@ -104,7 +109,7 @@ public class Main {
         double actionValue = 0;
         for (int nextState : new int[]{state + action, state - action}) {
             //stateToReward is defined by the nextState
-            double reward = stateTransitionToReward.apply(new intPairs(state, action), nextState);
+            double reward = stateTransitionToReward.apply(new stateActionPairs<>(state, action), nextState);
             //p(s',r|s,a) = (winning ? probWinGamble : 1 - probWinGamble)
             actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.get(nextState));
         }
