@@ -14,17 +14,17 @@ import java.util.function.BiFunction;
  */
 public class blackjack {
 
-    private static Queue<Integer> cards;
+    private static Queue<Integer> deck;
 
     /** {@code qπ(s,a)}: Given state s and action a, returns the expected future reward of the state action pair assuming {@link #policy} is followed afterward */
-    private static HashMap<Pair<State,Action>, Double> actionValueFunction;
+    private static HashMap<Pair<State, Action>, Double> actionValueFunction;
 
     /** {@code π(s,a)}: Given a State s and (valid) Action a, returns the probability of taking Action a in State s */
-    private static HashMap<Pair<State, Action>,Double> policy;
+    private static HashMap<Pair<State, Action>, Double> policy;
 
     /** {@code r}: In this instance, the stateToReward is associated purely to a state, however in most
      * cases it is associated with a state-action pair (s,a) or a state transition (s,a,s') */
-    private static final BiFunction<Pair<State,Action>,State,Double> stateTransitionToReward = (stateActionPair, nextState) -> {
+    private static final BiFunction<Pair<State, Action>, State, Double> stateTransitionToReward = (stateActionPair, nextState) -> {
         //todo implement card counting and card draws
         throw new UnsupportedOperationException("Not supported yet.");
     };
@@ -45,70 +45,118 @@ public class blackjack {
 
         resetDeck();
 
-        for(int dealerCard = 0;dealerCard <=10;dealerCard++)
-            for(int currentSum = 12;currentSum <=21;currentSum++)
-                for(boolean usableAce : new boolean[]{true,false})
-                    for(Action action : Action.values()) {
-                        Pair<State,Action> pair = new Pair<>(new State(dealerCard, currentSum, usableAce), action);
+        for (int dealerCard = 0; dealerCard <= 10; dealerCard++)
+            for (int currentSum = 12; currentSum <= 21; currentSum++)
+                for (boolean usableAce : new boolean[]{true, false})
+                    for (Action action : Action.values()) {
+                        Pair<State, Action> pair = new Pair<>(new State(dealerCard, currentSum, usableAce), action);
                         actionValueFunction.put(pair, 0.0); //initialize actionValueFunction with all 0s
-                        policy.put(pair,0.5); //initialize policy with equally likely chance of choosing either possible actions
+                        policy.put(pair, 0.5); //initialize policy with equally likely chance of choosing either possible actions
                     }
 
     }
 
-    public static void main(String[] args){
+    public static void main(String[] args) {
         //todo do smth here
     }
 
     /** Gets the data using the current policy and uses it to update the current action-value function approximation */
-    private static void updateAgentWithData(){
-        ArrayList<Pair<Pair<State,Action>,Double>> data = getDataWithPolicy();
-        for(int t=0;t<data.size();t++){
-            Pair<Pair<State,Action>,Double> stateActionReward = data.get(t);
+    private static void updateAgentWithData() {
+        ArrayList<Pair<Pair<State, Action>, Double>> data = getDataWithPolicy();
+        for (int t = 0; t < data.size(); t++) {
+            Pair<Pair<State, Action>, Double> stateActionReward = data.get(t);
             double gt = 0;
-            for(int i=data.size()-1;i>=t+1;i--){
+            for (int i = data.size() - 1; i >= t + 1; i--) {
                 gt *= discountRate;
                 gt += data.get(i).second();
             }
 
             double currentValuation = actionValueFunction.get(stateActionReward.first());
-            actionValueFunction.replace(stateActionReward.first(),currentValuation + alpha * (gt - currentValuation));
+            actionValueFunction.replace(stateActionReward.first(), currentValuation + alpha * (gt - currentValuation));
         }
 
         updatePolicyWithActionValueFunction();
     }
 
-    private static void updatePolicyWithActionValueFunction(){
-        for(int dealerCard = 0;dealerCard <=10;dealerCard++)
-            for(int currentSum = 12;currentSum <=21;currentSum++)
-                for(boolean usableAce : new boolean[]{true,false}) {
+    private static void updatePolicyWithActionValueFunction() {
+        for (int dealerCard = 0; dealerCard <= 10; dealerCard++)
+            for (int currentSum = 12; currentSum <= 21; currentSum++)
+                for (boolean usableAce : new boolean[]{true, false}) {
                     State s = new State(dealerCard, currentSum, usableAce);
-                    Pair<State,Action> HIT = new Pair<>(s,Action.HIT), STICK = new Pair<>(s,Action.STICK);
+                    Pair<State, Action> HIT = new Pair<>(s, Action.HIT), STICK = new Pair<>(s, Action.STICK);
                     boolean hitBestAction = actionValueFunction.get(HIT) > actionValueFunction.get(STICK);
-                    policy.replace(hitBestAction ? HIT : STICK,1 - epsilon + (epsilon) / 2);
-                    policy.replace(hitBestAction ? STICK : HIT,epsilon / 2);
+                    policy.replace(hitBestAction ? HIT : STICK, 1 - epsilon + (epsilon) / 2);
+                    policy.replace(hitBestAction ? STICK : HIT, epsilon / 2);
                 }
     }
 
     /** Uses {@link #policy} to obtain some data (state-action pairs associated with rewards) */
-    private static ArrayList<Pair<Pair<State,Action>,Double>> getDataWithPolicy(){
-        ArrayList<Pair<Pair<State,Action>,Double>> data = new ArrayList<>();
-        //todo implement
-        throw new UnsupportedOperationException();
+    private static ArrayList<Pair<Pair<State, Action>, Double>> getDataWithPolicy() {
+        ArrayList<Pair<Pair<State, Action>, Double>> data = new ArrayList<>();
+        resetDeck();
+
+        int agentCard1 = deck.remove(), agentCard2 = deck.remove(), dealerCardShown = deck.remove(), dealerCardHidden = deck.remove();
+
+        boolean acePresent = agentCard1 == 1 || agentCard2 == 1;
+        int sum = agentCard1 + agentCard2 + (acePresent ? 10 : 0);
+        while (sum < 12) {
+            int newCard = deck.remove();
+            if (!acePresent && newCard == 1) sum += 10;
+            sum += newCard;
+        }
+
+        State currentState = new State(dealerCardShown, sum, acePresent);
+        boolean usableAce = acePresent;
+        while (true) {
+            Action policyAction = Math.random() > policy.get(new Pair<>(currentState, Action.HIT)) ? Action.STICK : Action.HIT;
+            Pair<State, Action> stateActionPair = new Pair<>(currentState, policyAction);
+
+            if (policyAction == Action.HIT) {
+                int nextCard = deck.remove();
+
+                //set the currentSum and usableAce to its correct value
+                int currentSum = currentState.currentSum + nextCard;
+                if(currentSum > 21)
+                    if(usableAce) {
+                        currentSum -= 10;
+                        usableAce = false;
+                    } else {
+                        data.add(new Pair<>(stateActionPair,-1.0));//lose
+                        break;
+                    }
+
+                data.add(new Pair<>(stateActionPair,0.0));
+                currentState = new State(dealerCardShown, currentSum, usableAce);
+            } else {
+                int dealerSum = dealerCardShown + dealerCardHidden;
+
+                while (dealerSum < currentState.currentSum) dealerSum += deck.remove();
+                if(dealerSum == currentState.currentSum) //draw
+                    data.add(new Pair<>(stateActionPair,0.0));
+                else if(dealerSum > 21) //win
+                    data.add(new Pair<>(stateActionPair,1.0));
+                else //lose
+                    data.add(new Pair<>(stateActionPair,-1.0));
+                break;
+            }
+        }
+
+        return data;
     }
 
 
-    private static void resetDeck(){
-        ArrayList<Integer> deck = new ArrayList<>();
-        //initialize cards with appropriate numbers
-        for(int i=0;i<10;i++)
-            for(int j=0;j<4;j++)
-                deck.add(i);
+    private static void resetDeck() {
+        ArrayList<Integer> tempDeck = new ArrayList<>();
+        //initialize tempDeck with appropriate numbers
+        for (int i = 0; i < 10; i++)
+            for (int j = 0; j < 4; j++)
+                tempDeck.add(i);
 
-        for(int i=0;i<12;i++) deck.add(10);
-        Collections.shuffle(deck);
-        cards = new LinkedList<>(deck);
+        for (int i = 0; i < 12; i++) tempDeck.add(10);
+        Collections.shuffle(tempDeck);
+        deck = new LinkedList<>(tempDeck);
     }
+
     /**
      * @param dealerCard  The dealer's card from 1 to 10. If it's 1 then it's an ace, which means it can count as 1 or 11 in blackjack
      * @param currentSum  The current sum of the agent's deck, from 12 to 21. Any State where currentSum reaches above 21 is an instant terminal State
@@ -116,11 +164,12 @@ public class blackjack {
     private record State(int dealerCard, int currentSum, boolean usableAce) {
 
         @Override
-            public boolean equals(Object obj) {
-                return (obj instanceof State) && ((State) obj).dealerCard == dealerCard && ((State) obj).currentSum == currentSum && ((State) obj).usableAce == usableAce;
-            }
+        public boolean equals(Object obj) {
+            return (obj instanceof State) && ((State) obj).dealerCard == dealerCard && ((State) obj).currentSum == currentSum && ((State) obj).usableAce == usableAce;
         }
+    }
+
     private enum Action {
-        HIT,STICK;
+        HIT, STICK;
     }
 }
