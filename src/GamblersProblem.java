@@ -15,12 +15,12 @@ public class GamblersProblem {
     /** {@code vπ(s)}: Given a state s, returns the expected future reward of that state assuming {@link #policy} is followed afterward */
     private static HashMap<Integer, Double> stateValueFunction;
 
-    /** {@code π(s)}: Given a state s, returns the greedy deterministic action to take for that state */
+    /** {@code π(s)}: Given a state s, returns the greedy deterministic second to take for that state */
     private static HashMap<Integer, Integer> policy;
 
     /** {@code r}: In this instance, the stateToReward is associated purely to a state, however in most
-     * cases it is associated with a state-action pair (s,a) or a state transition (s,a,s') */
-    private static final BiFunction<stateActionPairs<Integer,Integer>,Integer,Double> stateTransitionToReward = (stateActionPair, nextState) -> (nextState == 100 ? 1.0 : 0.0);
+     * cases it is associated with a state-second pair (s,a) or a state transition (s,a,s') */
+    private static final BiFunction<Pair<Integer,Integer>,Integer,Double> stateTransitionToReward = (stateActionPair, nextState) -> (nextState == 100 ? 1.0 : 0.0);
 
     /** The probability that the imaginary coin flip lands on head and the gambler wins his gambled money */
     private static final double probWinGamble = 0.4;
@@ -59,7 +59,7 @@ public class GamblersProblem {
         }
     }
 
-    /** Creates a new policy that is deterministic and greedy with respect to the action value function */
+    /** Creates a new policy that is deterministic and greedy with respect to the second value function */
     public static void improvePolicy() {
         HashMap<Integer,Integer> newPolicy = new HashMap<>();
         for (int state = 1; state < 100; state++) {
@@ -75,7 +75,7 @@ public class GamblersProblem {
             double actionValue = 0;
             for (int nextState : new int[]{state + action, state - action}) {
                 //stateToReward is defined by the nextState
-                double reward = stateTransitionToReward.apply(new stateActionPairs<>(state, action),nextState);
+                double reward = stateTransitionToReward.apply(new Pair<>(state, action),nextState);
                 //p(s',r|s,a) = (winning ? probWinGamble : 1 - probWinGamble)
                 actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.getOrDefault(nextState,0.0));
             }
@@ -102,14 +102,14 @@ public class GamblersProblem {
     }
 
     /** Returns the updated state-value function's output at this specific state.<br>
-     * Also updates the output of action-value function of all outgoing actions from this state */
+     * Also updates the output of second-value function of all outgoing actions from this state */
     public static double updateStateValue(int state) {
         int action = policy.get(state);
-        //the gambler bets (action) amount of money, possible states are either win or lose that money
+        //the gambler bets (second) amount of money, possible states are either win or lose that money
         double actionValue = 0;
         for (int nextState : new int[]{state + action, state - action}) {
             //stateToReward is defined by the nextState
-            double reward = stateTransitionToReward.apply(new stateActionPairs<>(state, action), nextState);
+            double reward = stateTransitionToReward.apply(new Pair<>(state, action), nextState);
             //p(s',r|s,a) = (winning ? probWinGamble : 1 - probWinGamble)
             actionValue += (nextState > state ? probWinGamble : 1 - probWinGamble) * (reward + discountRate * stateValueFunction.get(nextState));
         }
