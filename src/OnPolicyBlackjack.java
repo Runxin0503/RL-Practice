@@ -11,12 +11,12 @@ import java.util.*;
  * A Reward is associated to a State-transition (s,a,s') where if s' is a terminal State then a reward is given.
  * {@code Reward r = win: 1, draw: 0, lose: -1}.
  */
-public class blackjack {
+public class OnPolicyBlackjack {
 
     /** {@code qπ(s,a)}: Given state s and action a, returns the expected future reward of the state action pair assuming {@link #policy} is followed afterward */
     private static HashMap<Pair<State, Action>, Double> actionValueFunction;
 
-    /** {@code π(s,a)}: Given a State s and (valid) Action a, returns the probability of taking Action a in State s */
+    /** {@code π(s,a)}: Given State s and (valid) Action a, returns the probability of taking Action a in State s */
     private static HashMap<Pair<State, Action>, Double> policy;
 
     /** {@code α}, otherwise known as the step size, controls the learning rate of the policy and how fast it converges */
