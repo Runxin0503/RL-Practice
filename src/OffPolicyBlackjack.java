@@ -73,7 +73,11 @@ public class OffPolicyBlackjack {
             double rho = 1;
             for (int i = t + 1; i < data.size(); i++) {
                 Pair<State, Action> stateActionPair2 = data.get(i).first();
-                rho *= (policy.get(stateActionPair2.first()) == stateActionPair2.second() ? 1 / behaviorPolicy.get(stateActionPair2) : 0);
+                if(policy.get(stateActionPair2.first()) == stateActionPair2.second()) rho /= behaviorPolicy.get(stateActionPair2);
+                else {
+                    rho = 0;
+                    break;
+                }
             }
 
             double gt = 0;
