@@ -130,10 +130,11 @@ public class OffPolicyBlackjack {
                 if (currentSum > 21) {
                     data.add(new Pair<>(stateActionPair, -1.0));//lose
                     return data;
-                } else if (currentSum == 21) {
-                    data.add(new Pair<>(stateActionPair, 1.0));//win
-                    return data;
                 }
+//                else if (currentSum == 21) {
+//                    data.add(new Pair<>(stateActionPair, 1.0));//win
+//                    return data;
+//                }
 
                 data.add(new Pair<>(stateActionPair, 0.0));
                 currentState = new State(dealerFirstCard, currentSum, checkUsableAce(agentCards));
