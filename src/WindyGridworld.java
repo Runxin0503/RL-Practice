@@ -80,7 +80,11 @@ public class WindyGridworld {
     }
 
     public static void main(String[] args) {
-        //todo implement
+        for(int i=0;i<10_000;i++){
+            new Thread(WindyGridworld::runSARSAEpisode).start();
+            new Thread(()-> run4TupleAlgorithmEpisode(expectedSARSAPolicy,expectedSARSAActionValueFunction)).start();
+            new Thread(()-> run4TupleAlgorithmEpisode(qLearningPolicy,qLearningActionValueFunction)).start();
+        }
     }
 
     /** Runs one episode of SARSA, calling {@link #updateSARSA(State, Action, double, State, Action)} every time a tuple (s,a,r,s',a') is accumulated. */
