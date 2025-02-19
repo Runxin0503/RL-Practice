@@ -14,10 +14,10 @@ import java.util.*;
 public class OnPolicyBlackjack {
 
     /** {@code qπ(s,a)}: Given state s and action a, returns the expected future reward of the state action pair assuming {@link #policy} is followed afterward */
-    private static HashMap<Pair<State, Action>, Double> actionValueFunction;
+    private static final HashMap<Pair<State, Action>, Double> actionValueFunction;
 
     /** {@code π(s,a)}: Given State s and (valid) Action a, returns the probability of taking Action a in State s */
-    private static HashMap<Pair<State, Action>, Double> policy;
+    private static final HashMap<Pair<State, Action>, Double> policy;
 
     /** {@code α}, otherwise known as the step size, controls the learning rate of the policy and how fast it converges */
     private static final double alpha = 2e-4;
@@ -80,6 +80,7 @@ public class OnPolicyBlackjack {
         updatePolicyWithActionValueFunction();
     }
 
+    /** Updates every state in the policy greedily with the highest valued action in the action-value function */
     private static void updatePolicyWithActionValueFunction() {
         for (int dealerCard = 1; dealerCard <= 10; dealerCard++)
             for (int currentSum = 12; currentSum <= 21; currentSum++)
@@ -153,10 +154,13 @@ public class OnPolicyBlackjack {
         }
     }
 
+    /** This class assumes an infinite deck where the card number is infinite and follows the regular distribution of cards.
+     * Chooses a random card from this distribution. */
     private static int sampleDeck(){
         return new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10}[(int)(Math.random() * 13)];
     }
 
+    /** Counts the maximum card number, counting aces as 11 when the sum doesn't surpass 21 and as 1 otherwise. */
     private static int countCardNum(List<Integer> cards){
         boolean acePresent = false;
         int sum = 0;
@@ -169,6 +173,8 @@ public class OnPolicyBlackjack {
         else return sum;
     }
 
+    /** Returns whether this set of cards contains a usable ace or not.
+     * A usable ace is defined as an ace that can be counted as 11 without the sum total of the cards exceeding 21 */
     private static boolean checkUsableAce(List<Integer> cards){
         boolean acePresent = false;
         int sum = 0;

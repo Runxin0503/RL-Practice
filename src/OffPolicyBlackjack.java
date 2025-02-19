@@ -12,6 +12,7 @@ import java.util.List;
  * instantly transitions the player into a terminal State (win, lose, draw).<br>
  * A Reward is associated to a State-transition (s,a,s') where if s' is a terminal State then a reward is given.
  * {@code Reward r = win: 1, draw: 0, lose: -1}.
+ * This class assumes blackjack is played with an infinite deck where the card number is infinite and follows the regular distribution of cards.
  */
 public class OffPolicyBlackjack {
 
@@ -92,6 +93,7 @@ public class OffPolicyBlackjack {
         updatePolicyWithActionValueFunction();
     }
 
+    /** Updates every state in the policy greedily with the highest valued action in the action-value function */
     private static void updatePolicyWithActionValueFunction() {
         for (int dealerCard = 1; dealerCard <= 10; dealerCard++)
             for (int currentSum = 12; currentSum <= 21; currentSum++)
@@ -161,10 +163,13 @@ public class OffPolicyBlackjack {
         }
     }
 
+    /** This class assumes an infinite deck where the card number is infinite and follows the regular distribution of cards.
+     * Chooses a random card from this distribution. */
     private static int sampleDeck() {
         return new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10}[(int) (Math.random() * 13)];
     }
 
+    /** Counts the maximum card number, counting aces as 11 when the sum doesn't surpass 21 and as 1 otherwise. */
     private static int countCardNum(List<Integer> cards) {
         boolean acePresent = false;
         int sum = 0;
@@ -177,6 +182,8 @@ public class OffPolicyBlackjack {
         else return sum;
     }
 
+    /** Returns whether this set of cards contains a usable ace or not.
+     * A usable ace is defined as an ace that can be counted as 11 without the sum total of the cards exceeding 21 */
     private static boolean checkUsableAce(List<Integer> cards) {
         boolean acePresent = false;
         int sum = 0;
