@@ -47,9 +47,6 @@ public class WindyGridworld {
     /** The probability of a policy choosing an action randomly and uniformly from the possible action values */
     private static final double epsilon = 0.1;
 
-    /** The number of steps to take in a Trajectory (episode) before updating the current policy */
-    private static final int n = 1;
-
     /** A Constant Reward given to the algorithms upon every action they take. This encourages the algorithms to
      * minimize the total number of actions taken and thus the total number of paths traversed until the goal point */
     private static final double reward = -1;
@@ -76,14 +73,26 @@ public class WindyGridworld {
                     qLearningPolicy.put(pair, 1.0 / validActions.size());
                 }
             }
-
     }
 
     public static void main(String[] args) {
-        for(int i=0;i<10_000;i++){
-            new Thread(WindyGridworld::runSARSAEpisode).start();
-            new Thread(()-> run4TupleAlgorithmEpisode(expectedSARSAPolicy,expectedSARSAActionValueFunction)).start();
-            new Thread(()-> run4TupleAlgorithmEpisode(qLearningPolicy,qLearningActionValueFunction)).start();
+        Thread[] threadGroup = new Thread[3];
+        for (int i = 0; i < 100_000; i++) {
+            threadGroup[0] = new Thread(WindyGridworld::runSARSAEpisode);
+            threadGroup[1] = new Thread(() -> run4TupleAlgorithmEpisode(expectedSARSAPolicy, expectedSARSAActionValueFunction));
+            threadGroup[2] = new Thread(() -> run4TupleAlgorithmEpisode(qLearningPolicy, qLearningActionValueFunction));
+
+            for (Thread t : threadGroup) t.start();
+            for (Thread t : threadGroup)
+                try{
+                    t.join();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+//            runSARSAEpisode();
+//            run4TupleAlgorithmEpisode(expectedSARSAPolicy,expectedSARSAActionValueFunction);
+//            run4TupleAlgorithmEpisode(qLearningPolicy,qLearningActionValueFunction);
+            System.out.println(i);
         }
     }
 
@@ -98,7 +107,7 @@ public class WindyGridworld {
                 case UP -> {
                     if (windLevel[currentState.column] != 0) {
                         int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample - 1, 0, rows);
+                        int newRow = Math.clamp(currentState.row + randomSample - 1, 0, rows - 1);
                         newState = new State(newRow, currentState.column);
                     } else {
                         newState = new State(currentState.row - 1, currentState.column);
@@ -107,7 +116,7 @@ public class WindyGridworld {
                 case DOWN -> {
                     if (windLevel[currentState.column] != 0) {
                         int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample + 1, 0, rows);
+                        int newRow = Math.clamp(currentState.row + randomSample + 1, 0, rows - 1);
                         newState = new State(newRow, currentState.column);
                     } else {
                         newState = new State(currentState.row + 1, currentState.column);
@@ -126,19 +135,24 @@ public class WindyGridworld {
     /** Follows the update rule of Q(s,a) <- r + discountRate * Q(s',a') to update {@link #SARSAActionValueFunction}.
      * Then, scans through the values of SARSA's policy π(s,x) for all valid action x in state s and epsilon-greedily updates them */
     private static void updateSARSA(State s, Action a, double r, State nextState, Action nextAction) {
-        SARSAActionValueFunction.replace(new Pair<>(s, a), r + discountRate * SARSAActionValueFunction.get(new Pair<>(nextState, nextAction)));
 
-        Action bestAction = getBestActionFromActionValueFunction(s,SARSAActionValueFunction);
+        double targetValue = r + discountRate * SARSAActionValueFunction.get(new Pair<>(nextState, nextAction));
+
+        Pair<State,Action> stateActionPair = new Pair<>(s,a);
+        double currentValue = SARSAActionValueFunction.get(stateActionPair);
+        SARSAActionValueFunction.replace(stateActionPair, currentValue + alpha * (targetValue - currentValue));
+
+        Action bestAction = getBestActionFromActionValueFunction(s, SARSAActionValueFunction);
         List<Action> validActions = getValidActions(s);
         for (Action action : validActions) {
-            SARSAPolicy.replace(new Pair<>(s, action), (action == bestAction ? 1 - epsilon : 0)  + epsilon / validActions.size());
+            SARSAPolicy.replace(new Pair<>(s, action), (action == bestAction ? 1 - epsilon : 0) + epsilon / validActions.size());
         }
     }
 
 
     /** Runs one episode of either Q-Learning or expectedSARSA, which doesn't require the 5-tuple (s,a,r,s',a') and instead only requires the 4-tuple (s,a,r,s').
      * Calls {@link #updateSARSA} every time the 4-tuple is accumulated. */
-    private static void run4TupleAlgorithmEpisode(HashMap<Pair<State,Action>,Double> policy,HashMap<Pair<State,Action>,Double> actionValueFunction) {
+    private static void run4TupleAlgorithmEpisode(HashMap<Pair<State, Action>, Double> policy, HashMap<Pair<State, Action>, Double> actionValueFunction) {
         State currentState = startingState, newState;
         Action currentAction = sampleActionFromPolicy(currentState, policy);
         while (!currentState.equals(goalState)) {
@@ -148,7 +162,7 @@ public class WindyGridworld {
                 case UP -> {
                     if (windLevel[currentState.column] != 0) {
                         int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample - 1, 0, rows);
+                        int newRow = Math.clamp(currentState.row + randomSample - 1, 0, rows - 1);
                         newState = new State(newRow, currentState.column);
                     } else {
                         newState = new State(currentState.row - 1, currentState.column);
@@ -157,7 +171,7 @@ public class WindyGridworld {
                 case DOWN -> {
                     if (windLevel[currentState.column] != 0) {
                         int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample + 1, 0, rows);
+                        int newRow = Math.clamp(currentState.row + randomSample + 1, 0, rows - 1);
                         newState = new State(newRow, currentState.column);
                     } else {
                         newState = new State(currentState.row + 1, currentState.column);
@@ -166,33 +180,36 @@ public class WindyGridworld {
                 case null, default -> throw new RuntimeException("Unexpected error in returned action from policy");
             }
 
-            update4TupleAlgorithm(currentState, currentAction, reward, newState, policy,actionValueFunction);
+            update4TupleAlgorithm(currentState, currentAction, reward, newState, policy, actionValueFunction);
             currentState = newState;
-            currentAction = sampleActionFromPolicy(newState, policy);
+            currentAction = sampleActionFromPolicy(currentState, policy);
         }
     }
 
     /** Follows the update rule of either Q-Learning or Expected SARSA to update the given {@code actionValueFunction}.
      * Then, scans through the values of the given {@code policy} π(s,x) for all valid action x in state s and epsilon-greedily updates them */
-    private static void update4TupleAlgorithm(State s, Action a, double r, State nextState,HashMap<Pair<State,Action>,Double> policy,HashMap<Pair<State,Action>,Double> actionValueFunction) {
+    private static void update4TupleAlgorithm(State s, Action a, double r, State nextState, HashMap<Pair<State, Action>, Double> policy, HashMap<Pair<State, Action>, Double> actionValueFunction) {
 
-        double predictedNextValue = 0;
-        if(actionValueFunction==qLearningActionValueFunction) {
-            Action bestAction = getBestActionFromActionValueFunction(nextState,actionValueFunction);
-            predictedNextValue = actionValueFunction.get(new Pair<>(nextState, bestAction));
-        }else{
-            for(Action validAction : getValidActions(nextState)) {
-                Pair<State,Action> nextStateActionPair = new Pair<>(nextState, validAction);
-                predictedNextValue += actionValueFunction.get(nextStateActionPair) * policy.get(nextStateActionPair);
+        double targetValue = 0;
+        if (actionValueFunction == qLearningActionValueFunction) {
+            Action bestAction = getBestActionFromActionValueFunction(nextState, actionValueFunction);
+            targetValue = actionValueFunction.get(new Pair<>(nextState, bestAction));
+        } else {
+            for (Action validAction : getValidActions(nextState)) {
+                Pair<State, Action> nextStateActionPair = new Pair<>(nextState, validAction);
+                targetValue += actionValueFunction.get(nextStateActionPair) * policy.get(nextStateActionPair);
             }
         }
+        targetValue = r + discountRate * targetValue;
 
-        SARSAActionValueFunction.replace(new Pair<>(s, a), r + discountRate * predictedNextValue);
+        Pair<State,Action> stateActionPair = new Pair<>(s,a);
+        double currentValue = actionValueFunction.get(stateActionPair);
+        actionValueFunction.replace(stateActionPair, currentValue + alpha * (targetValue - currentValue));
 
-        Action bestAction = getBestActionFromActionValueFunction(s,actionValueFunction);
+        Action bestAction = getBestActionFromActionValueFunction(s, actionValueFunction);
         List<Action> validActions = getValidActions(s);
         for (Action action : validActions) {
-            policy.replace(new Pair<>(s, action), (action == bestAction ? 1 - epsilon : 0)  + epsilon / validActions.size());
+            policy.replace(new Pair<>(s, action), (action == bestAction ? 1 - epsilon : 0) + epsilon / validActions.size());
         }
     }
 
@@ -200,9 +217,9 @@ public class WindyGridworld {
     private static Action getBestActionFromActionValueFunction(State s, HashMap<Pair<State, Action>, Double> actionValueFunction) {
         Action bestAction = null;
         double bestActionValue = -Double.MAX_VALUE;
-        for (Action a : getValidActions(s)){
+        for (Action a : getValidActions(s)) {
             double actionValue = actionValueFunction.get(new Pair<>(s, a));
-            if(actionValue > bestActionValue){
+            if (actionValue > bestActionValue) {
                 bestAction = a;
                 bestActionValue = actionValue;
             }
@@ -225,10 +242,10 @@ public class WindyGridworld {
 
     private static List<Action> getValidActions(State state) {
         ArrayList<Action> actions = new ArrayList<>(4);
-        if (state.row != 0) actions.add(Action.UP);
-        if (state.column != 0) actions.add(Action.LEFT);
-        if (state.row != rows) actions.add(Action.DOWN);
-        if (state.column != columns) actions.add(Action.RIGHT);
+        if (state.row > 0) actions.add(Action.UP);
+        if (state.column > 0) actions.add(Action.LEFT);
+        if (state.row < rows - 1) actions.add(Action.DOWN);
+        if (state.column < columns - 1) actions.add(Action.RIGHT);
         return actions;
     }
 
