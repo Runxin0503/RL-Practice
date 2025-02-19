@@ -85,8 +85,8 @@ public class WindyGridworld {
 
     /** Runs one episode of SARSA, calling {@link #updateSARSA(State, Action, double, State, Action)} every time a tuple (s,a,r,s',a') is accumulated. */
     private static void runSARSAEpisode() {
-        State currentState = startingState, newState = null;
-        Action currentAction = selectActionFromPolicy(currentState, SARSAPolicy);
+        State currentState = startingState, newState;
+        Action currentAction = sampleActionFromPolicy(currentState, SARSAPolicy);
         while (!currentState.equals(goalState)) {
             switch (currentAction) {
                 case LEFT -> newState = new State(currentState.row, currentState.column - 1);
@@ -112,18 +112,43 @@ public class WindyGridworld {
                 case null, default -> throw new RuntimeException("Unexpected error in returned action from policy");
             }
 
-            Action nextAction = selectActionFromPolicy(newState, SARSAPolicy);
-            updateSARSA(currentState,currentAction,reward,newState,nextAction);
+            Action nextAction = sampleActionFromPolicy(newState, SARSAPolicy);
+            updateSARSA(currentState, currentAction, reward, newState, nextAction);
             currentState = newState;
             currentAction = nextAction;
         }
     }
 
-    private static void updateSARSA(State s,Action a,double r,State nextState,Action nextAction) {
-        //todo implement
+    /** Follows the update rule of Q(s,a) <- r + discountRate * Q(s',a') to update {@link #SARSAActionValueFunction}.
+     * Then, scans through the values of π(s,x) for all valid action x in state s and epsilon-greedily updates them */
+    private static void updateSARSA(State s, Action a, double r, State nextState, Action nextAction) {
+        SARSAActionValueFunction.replace(new Pair<>(s, a), r + discountRate * SARSAActionValueFunction.get(new Pair<>(nextState, nextAction)));
+
+        Action bestAction = getBestActionFromActionValueFunction(s,SARSAActionValueFunction);
+        List<Action> validActions = getValidActions(s);
+        for (Action action : validActions) {
+            SARSAPolicy.replace(new Pair<>(s, action), (action == bestAction ? 1 - epsilon : 0)  + epsilon / validActions.size());
+        }
     }
 
-    private static Action selectActionFromPolicy(State s, HashMap<Pair<State, Action>, Double> policy) {
+    /** Gets the highest valued action a at State s according to the input {@code actionValueFunction} */
+    private static Action getBestActionFromActionValueFunction(State s, HashMap<Pair<State, Action>, Double> actionValueFunction) {
+        Action bestAction = null;
+        double bestActionValue = -Double.MAX_VALUE;
+        for (Action a : getValidActions(s)){
+            double actionValue = actionValueFunction.get(new Pair<>(s, a));
+            if(actionValue > bestActionValue){
+                bestAction = a;
+                bestActionValue = actionValue;
+            }
+        }
+
+        assert bestAction != null;
+        return bestAction;
+    }
+
+    /** Randomly samples an action from the distribution of possible actions provided by the policy */
+    private static Action sampleActionFromPolicy(State s, HashMap<Pair<State, Action>, Double> policy) {
         double random = Math.random();
         for (Action a : getValidActions(s)) {
             random -= policy.get(new Pair<>(s, a));
