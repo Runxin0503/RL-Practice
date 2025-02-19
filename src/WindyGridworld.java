@@ -120,7 +120,7 @@ public class WindyGridworld {
     }
 
     /** Follows the update rule of Q(s,a) <- r + discountRate * Q(s',a') to update {@link #SARSAActionValueFunction}.
-     * Then, scans through the values of π(s,x) for all valid action x in state s and epsilon-greedily updates them */
+     * Then, scans through the values of SARSA's policy π(s,x) for all valid action x in state s and epsilon-greedily updates them */
     private static void updateSARSA(State s, Action a, double r, State nextState, Action nextAction) {
         SARSAActionValueFunction.replace(new Pair<>(s, a), r + discountRate * SARSAActionValueFunction.get(new Pair<>(nextState, nextAction)));
 
@@ -128,6 +128,67 @@ public class WindyGridworld {
         List<Action> validActions = getValidActions(s);
         for (Action action : validActions) {
             SARSAPolicy.replace(new Pair<>(s, action), (action == bestAction ? 1 - epsilon : 0)  + epsilon / validActions.size());
+        }
+    }
+
+
+    /** Runs one episode of either Q-Learning or expectedSARSA, which doesn't require the 5-tuple (s,a,r,s',a') and instead only requires the 4-tuple (s,a,r,s').
+     * Calls {@link #updateSARSA} every time the 4-tuple is accumulated. */
+    private static void run4TupleAlgorithmEpisode(HashMap<Pair<State,Action>,Double> policy,HashMap<Pair<State,Action>,Double> actionValueFunction) {
+        State currentState = startingState, newState;
+        Action currentAction = sampleActionFromPolicy(currentState, policy);
+        while (!currentState.equals(goalState)) {
+            switch (currentAction) {
+                case LEFT -> newState = new State(currentState.row, currentState.column - 1);
+                case RIGHT -> newState = new State(currentState.row, currentState.column + 1);
+                case UP -> {
+                    if (windLevel[currentState.column] != 0) {
+                        int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
+                        int newRow = Math.clamp(currentState.row + randomSample - 1, 0, rows);
+                        newState = new State(newRow, currentState.column);
+                    } else {
+                        newState = new State(currentState.row - 1, currentState.column);
+                    }
+                }
+                case DOWN -> {
+                    if (windLevel[currentState.column] != 0) {
+                        int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
+                        int newRow = Math.clamp(currentState.row + randomSample + 1, 0, rows);
+                        newState = new State(newRow, currentState.column);
+                    } else {
+                        newState = new State(currentState.row + 1, currentState.column);
+                    }
+                }
+                case null, default -> throw new RuntimeException("Unexpected error in returned action from policy");
+            }
+
+            update4TupleAlgorithm(currentState, currentAction, reward, newState, policy,actionValueFunction);
+            currentState = newState;
+            currentAction = sampleActionFromPolicy(newState, policy);
+        }
+    }
+
+    /** Follows the update rule of either Q-Learning or Expected SARSA to update the given {@code actionValueFunction}.
+     * Then, scans through the values of the given {@code policy} π(s,x) for all valid action x in state s and epsilon-greedily updates them */
+    private static void update4TupleAlgorithm(State s, Action a, double r, State nextState,HashMap<Pair<State,Action>,Double> policy,HashMap<Pair<State,Action>,Double> actionValueFunction) {
+
+        double predictedNextValue = 0;
+        if(actionValueFunction==qLearningActionValueFunction) {
+            Action bestAction = getBestActionFromActionValueFunction(nextState,actionValueFunction);
+            predictedNextValue = actionValueFunction.get(new Pair<>(nextState, bestAction));
+        }else{
+            for(Action validAction : getValidActions(nextState)) {
+                Pair<State,Action> nextStateActionPair = new Pair<>(nextState, validAction);
+                predictedNextValue += actionValueFunction.get(nextStateActionPair) * policy.get(nextStateActionPair);
+            }
+        }
+
+        SARSAActionValueFunction.replace(new Pair<>(s, a), r + discountRate * predictedNextValue);
+
+        Action bestAction = getBestActionFromActionValueFunction(s,actionValueFunction);
+        List<Action> validActions = getValidActions(s);
+        for (Action action : validActions) {
+            policy.replace(new Pair<>(s, action), (action == bestAction ? 1 - epsilon : 0)  + epsilon / validActions.size());
         }
     }
 
