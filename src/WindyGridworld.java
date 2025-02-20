@@ -40,7 +40,7 @@ public class WindyGridworld {
     /** {@code α}, otherwise known as the step size, controls the learning rate of the policy and how fast it converges */
     private static final double alpha = 0.25;
 
-    /** The Discount Rate Parameter of the Blackjack problem.
+    /** The Discount Rate Parameter of the WindyGridworld problem.
      * Set to 1 to not value future rewards any less than present ones */
     private static final double discountRate = 1;
 

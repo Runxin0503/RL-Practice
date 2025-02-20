@@ -1,3 +1,5 @@
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.function.Function;
 
 /**
@@ -14,33 +16,75 @@ public class ThousandStateRandomWalk {
     private static final int numBuckets = 10;
 
     /** Weights of the Monte-Carlo value function, used to approximate the actual true value function */
-    private static final double[] weightsMC = new double[numBuckets];
+    private static double[] weightsMC = new double[numBuckets];
 
     /** Weights of the 1-step Temporal Difference value function, used to approximate the actual true value function */
-    private static final double[] weightsTD = new double[numBuckets];
+    private static double[] weightsTD = new double[numBuckets];
+
+    private static final Function<Integer, Double> stateToReward = state -> state == 1 ? -1 : (state == 1000 ? 1 : 0.0);
 
     /** Given a state, maps it to a binary function feature data, where the only non-zero value is a 1
      * at the index of where the state is located (Ex: State 230 means index at state 200 to 300 has value 1). */
-    private static final Function<Integer,double[]> stateToFeatureMap = state -> {
+    private static final Function<Integer, double[]> stateToFeatureMap = state -> {
         double[] featureMap = new double[numBuckets];
-        featureMap[state / (1000/numBuckets)] = 1;
+        featureMap[(state-1) / (1000 / numBuckets)] = 1;
         return featureMap;
     };
 
+    /** The Discount Rate Parameter of this particular problem.
+     * Set to 1 to not value future rewards any less than present ones */
+    private static final double discountRate = 1;
+
     /** The learning rate used in stochastic gradient descent (SGD) */
-    private static final double learningRate = 0.1;
+    private static final double learningRate = 0.01;
 
     public static void main(String[] args) {
-        //todo implement
+        for(int i=0;i<100_000;i++){
+            updateStepMC();
+            System.out.println(i);
+        }
+        for(int i : new int[]{1,101,201,301,401,501,601,701,801,901}){
+            System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i),weightsMC));
+        }
     }
 
     /** Runs one episode of MC-algorithm and update accordingly using the update step */
-    public static void updateStepMC(){
-        //todo implement
+    public static void updateStepMC() {
+        ArrayList<Pair<Integer, Double>> stateRewards = new ArrayList<>();
+        int currentState = 500;
+        stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState)));
+
+        while (currentState != 1 && currentState != 1000) {
+            boolean moveLeft = Math.random() < 0.5;
+            if (moveLeft) {
+                int maxStateMoved = currentState - Math.max(currentState - 100, 1);
+                currentState -= (int) (maxStateMoved * Math.random()) + 1;
+            } else {
+                int maxStateMoved = Math.min(currentState + 100, 1000) - currentState;
+                currentState += (int) (maxStateMoved * Math.random()) + 1;
+            }
+
+            assert currentState > 0 && currentState <= 1000;
+
+            stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState)));
+        }
+
+        //tempWeightsMC stores the weights before processing the episode so the weights in the equation
+        // will not change when updating
+        double[] tempWeightsMC = weightsMC;
+        for (int i = 0; i < stateRewards.size(); i++) {
+            double targetValue = 0;
+            for (int j = stateRewards.size() - 1; j >= 0; j--) {
+                targetValue = discountRate * targetValue + stateRewards.get(j).second();
+            }
+
+            double[] stateFeatureMap = stateToFeatureMap.apply(stateRewards.get(i).first());
+            weightsMC = LinAlg.add(weightsMC, LinAlg.scale(learningRate * (targetValue - LinAlg.dotProduct(tempWeightsMC, stateFeatureMap)), stateFeatureMap));
+        }
     }
 
     /** Runs one episode of TD-algorithm and updates accordingly using the update step */
-    public static void updateEpisodeTD(){
+    public static void updateEpisodeTD() {
         //todo implement
     }
 }
