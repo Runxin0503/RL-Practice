@@ -60,7 +60,7 @@ public class WindyGridworld {
         qLearningActionValueFunction = new HashMap<>();
 
         for (int row = 0; row < rows; row++)
-            for (int column = 0; column <= columns; column++) {
+            for (int column = 0; column < columns; column++) {
                 State s = new State(row, column);
                 List<Action> validActions = getValidActions(s);
                 for (Action action : validActions) {
@@ -84,16 +84,71 @@ public class WindyGridworld {
 
             for (Thread t : threadGroup) t.start();
             for (Thread t : threadGroup)
-                try{
+                try {
                     t.join();
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
-//            runSARSAEpisode();
-//            run4TupleAlgorithmEpisode(expectedSARSAPolicy,expectedSARSAActionValueFunction);
-//            run4TupleAlgorithmEpisode(qLearningPolicy,qLearningActionValueFunction);
             System.out.println(i);
         }
+
+        for (HashMap<?, ?> policy : new HashMap<?, ?>[]{SARSAPolicy, expectedSARSAPolicy, qLearningPolicy}) {
+            if (policy == SARSAPolicy) System.out.print("SARSA Policy: ");
+            else if (policy == expectedSARSAPolicy) System.out.print("Expected SARSA Policy: ");
+            else if (policy == qLearningPolicy) System.out.print("Q Learning Policy: ");
+
+            double avgReward = 0;
+            for (int i = 0; i < 1_000_000; i++)
+                avgReward += getRewardFromEpisode((HashMap<Pair<State, Action>, Double>) policy);
+            avgReward /= 1_000_000;
+            System.out.println(avgReward);
+
+            for (int row = 0; row < rows; row++) {
+                System.out.print("[");
+                for (int column = 0; column < columns; column++) {
+                    State s = new State(row, column);
+                    Action bestAction = null;
+                    for (Action a : getValidActions(s)) if ((Double) policy.get(new Pair<>(s, a)) > 0.5) bestAction = a;
+                    System.out.print(switch (bestAction) {
+                        case UP -> "^";
+                        case DOWN -> "v";
+                        case LEFT -> "<";
+                        case RIGHT -> ">";
+                        case null -> "?";
+                    } + ",");
+                }
+                System.out.println("]");
+            }
+            System.out.println("\n\n");
+        }
+    }
+
+    private static double getRewardFromEpisode(HashMap<Pair<State, Action>, Double> policy) {
+        State currentState = startingState;
+        Action currentAction;
+        double totalReward = 0;
+
+        while (!currentState.equals(goalState)) {
+            currentAction = sampleActionFromPolicy(currentState, policy);
+            switch (currentAction) {
+                case LEFT -> currentState = new State(getRowWithWind(currentState, 0), currentState.column - 1);
+                case RIGHT -> currentState = new State(getRowWithWind(currentState, 0), currentState.column + 1);
+                case UP -> currentState = new State(getRowWithWind(currentState, -1), currentState.column);
+                case DOWN -> currentState = new State(getRowWithWind(currentState, 1), currentState.column);
+                case null, default -> throw new RuntimeException("Unexpected error in returned action from policy");
+            }
+            totalReward += reward;
+        }
+
+        return totalReward;
+    }
+
+    private static int getRowWithWind(State s, int delta) {
+        if (windLevel[s.column] != 0) {
+            int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
+            return Math.clamp(s.row + randomSample + delta, 0, rows - 1);
+        }
+        return s.row;
     }
 
     /** Runs one episode of SARSA, calling {@link #updateSARSA(State, Action, double, State, Action)} every time a tuple (s,a,r,s',a') is accumulated. */
@@ -102,26 +157,10 @@ public class WindyGridworld {
         Action currentAction = sampleActionFromPolicy(currentState, SARSAPolicy);
         while (!currentState.equals(goalState)) {
             switch (currentAction) {
-                case LEFT -> newState = new State(currentState.row, currentState.column - 1);
-                case RIGHT -> newState = new State(currentState.row, currentState.column + 1);
-                case UP -> {
-                    if (windLevel[currentState.column] != 0) {
-                        int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample - 1, 0, rows - 1);
-                        newState = new State(newRow, currentState.column);
-                    } else {
-                        newState = new State(currentState.row - 1, currentState.column);
-                    }
-                }
-                case DOWN -> {
-                    if (windLevel[currentState.column] != 0) {
-                        int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample + 1, 0, rows - 1);
-                        newState = new State(newRow, currentState.column);
-                    } else {
-                        newState = new State(currentState.row + 1, currentState.column);
-                    }
-                }
+                case LEFT -> newState = new State(getRowWithWind(currentState, 0), currentState.column - 1);
+                case RIGHT -> newState = new State(getRowWithWind(currentState, 0), currentState.column + 1);
+                case UP -> newState = new State(getRowWithWind(currentState, -1), currentState.column);
+                case DOWN -> newState = new State(getRowWithWind(currentState, 1), currentState.column);
                 case null, default -> throw new RuntimeException("Unexpected error in returned action from policy");
             }
 
@@ -138,7 +177,7 @@ public class WindyGridworld {
 
         double targetValue = r + discountRate * SARSAActionValueFunction.get(new Pair<>(nextState, nextAction));
 
-        Pair<State,Action> stateActionPair = new Pair<>(s,a);
+        Pair<State, Action> stateActionPair = new Pair<>(s, a);
         double currentValue = SARSAActionValueFunction.get(stateActionPair);
         SARSAActionValueFunction.replace(stateActionPair, currentValue + alpha * (targetValue - currentValue));
 
@@ -157,26 +196,10 @@ public class WindyGridworld {
         Action currentAction = sampleActionFromPolicy(currentState, policy);
         while (!currentState.equals(goalState)) {
             switch (currentAction) {
-                case LEFT -> newState = new State(currentState.row, currentState.column - 1);
-                case RIGHT -> newState = new State(currentState.row, currentState.column + 1);
-                case UP -> {
-                    if (windLevel[currentState.column] != 0) {
-                        int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample - 1, 0, rows - 1);
-                        newState = new State(newRow, currentState.column);
-                    } else {
-                        newState = new State(currentState.row - 1, currentState.column);
-                    }
-                }
-                case DOWN -> {
-                    if (windLevel[currentState.column] != 0) {
-                        int randomSample = new int[]{-1, 0, 1}[(int) (Math.random() * 3)];
-                        int newRow = Math.clamp(currentState.row + randomSample + 1, 0, rows - 1);
-                        newState = new State(newRow, currentState.column);
-                    } else {
-                        newState = new State(currentState.row + 1, currentState.column);
-                    }
-                }
+                case LEFT -> newState = new State(getRowWithWind(currentState, 0), currentState.column - 1);
+                case RIGHT -> newState = new State(getRowWithWind(currentState, 0), currentState.column + 1);
+                case UP -> newState = new State(getRowWithWind(currentState, -1), currentState.column);
+                case DOWN -> newState = new State(getRowWithWind(currentState, 1), currentState.column);
                 case null, default -> throw new RuntimeException("Unexpected error in returned action from policy");
             }
 
@@ -202,7 +225,7 @@ public class WindyGridworld {
         }
         targetValue = r + discountRate * targetValue;
 
-        Pair<State,Action> stateActionPair = new Pair<>(s,a);
+        Pair<State, Action> stateActionPair = new Pair<>(s, a);
         double currentValue = actionValueFunction.get(stateActionPair);
         actionValueFunction.replace(stateActionPair, currentValue + alpha * (targetValue - currentValue));
 
