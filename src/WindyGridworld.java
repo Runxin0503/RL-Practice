@@ -175,7 +175,7 @@ public class WindyGridworld {
      * Then, scans through the values of SARSA's policy π(s,x) for all valid action x in state s and epsilon-greedily updates them */
     private static void updateSARSA(State s, Action a, double r, State nextState, Action nextAction) {
 
-        double targetValue = r + discountRate * SARSAActionValueFunction.get(new Pair<>(nextState, nextAction));
+        double targetValue = r + (nextState.equals(goalState) ? 0 : discountRate * SARSAActionValueFunction.get(new Pair<>(nextState, nextAction)));
 
         Pair<State, Action> stateActionPair = new Pair<>(s, a);
         double currentValue = SARSAActionValueFunction.get(stateActionPair);
@@ -223,7 +223,7 @@ public class WindyGridworld {
                 targetValue += actionValueFunction.get(nextStateActionPair) * policy.get(nextStateActionPair);
             }
         }
-        targetValue = r + discountRate * targetValue;
+        targetValue = r + (nextState.equals(goalState) ? 0 : discountRate * targetValue);
 
         Pair<State, Action> stateActionPair = new Pair<>(s, a);
         double currentValue = actionValueFunction.get(stateActionPair);

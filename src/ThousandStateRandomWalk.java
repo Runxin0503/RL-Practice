@@ -22,7 +22,7 @@ public class ThousandStateRandomWalk {
     /** Weights of the 1-step Temporal Difference value function, used to approximate the actual true value function */
     private static double[] weightsTD = new double[numBuckets];
 
-    private static final BiFunction<Integer,Integer, Double> stateToReward = (state,nextState) -> nextState <= 1 ? -1 : (nextState >= 1000 ? 1 : 0.0);
+    private static final BiFunction<Integer,Integer, Double> stateToReward = (state,nextState) -> nextState == 1 ? -1 : (nextState == 1000 ? 1 : 0.0);
 
     /** Given a state, maps it to a binary function feature data, where the only non-zero value is a 1
      * at the index of where the state is located (Ex: State 230 means index at state 200 to 300 has value 1). */
@@ -40,9 +40,9 @@ public class ThousandStateRandomWalk {
     private static final double learningRate = 4e-5;
 
     public static void main(String[] args) {
-        for(int i=0;i<100_000;i++){
+        for(int i=0;i<1_000_000;i++){
             updateEpisodeTD();
-//            System.out.println(weightsMC[0]);
+            System.out.println(weightsTD[0]);
         }
         for(int i : new int[]{1,101,201,301,401,501,601,701,801,901}){
             System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i),weightsTD));
@@ -54,11 +54,11 @@ public class ThousandStateRandomWalk {
         ArrayList<Pair<Integer, Double>> stateRewards = new ArrayList<>();
         int currentState = 500;
 
-        while (currentState > 1 && currentState < 1000) {
+        while (currentState != 1 && currentState != 1000) {
 
             int randomWalk = (int)(Math.random() * 200) - 100;
             if(randomWalk >= 0) randomWalk++;
-            int nextState = currentState + randomWalk;
+            int nextState = Math.clamp(currentState + randomWalk,1,1000);
 
             stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState,nextState)));
             currentState = nextState;
@@ -82,15 +82,15 @@ public class ThousandStateRandomWalk {
     private static void updateEpisodeTD() {
         int currentState = 500;
 
-        while (currentState > 1 && currentState < 1000) {
+        while (currentState != 1 && currentState != 1000) {
 
             int randomWalk = (int)(Math.random() * 200) - 100;
             if(randomWalk >= 0) randomWalk++;
-            int nextState = currentState + randomWalk;
+            int nextState = Math.clamp(currentState + randomWalk,1,1000);
 
             //update TD weights on learned values
             double[] currentStateFeatureMap = stateToFeatureMap.apply(currentState);
-            double targetValue = stateToReward.apply(currentState,nextState) + discountRate * LinAlg.dotProduct(weightsTD,stateToFeatureMap.apply(nextState));
+            double targetValue = stateToReward.apply(currentState,nextState) + (nextState == 1 || nextState == 1000 ? 0 : discountRate * LinAlg.dotProduct(weightsTD,stateToFeatureMap.apply(nextState)));
             weightsTD = LinAlg.add(weightsTD, LinAlg.scale(learningRate * (targetValue - LinAlg.dotProduct(weightsTD, currentStateFeatureMap)), currentStateFeatureMap));
 
             currentState = nextState;
