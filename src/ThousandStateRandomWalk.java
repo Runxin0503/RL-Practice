@@ -41,16 +41,16 @@ public class ThousandStateRandomWalk {
 
     public static void main(String[] args) {
         for(int i=0;i<100_000;i++){
-            updateStepMC();
+            updateEpisodeTD();
 //            System.out.println(weightsMC[0]);
         }
         for(int i : new int[]{1,101,201,301,401,501,601,701,801,901}){
-            System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i),weightsMC));
+            System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i),weightsTD));
         }
     }
 
     /** Runs one episode of MC-algorithm and update accordingly using the update step */
-    public static void updateStepMC() {
+    private static void updateStepMC() {
         ArrayList<Pair<Integer, Double>> stateRewards = new ArrayList<>();
         int currentState = 500;
 
@@ -79,7 +79,22 @@ public class ThousandStateRandomWalk {
     }
 
     /** Runs one episode of TD-algorithm and updates accordingly using the update step */
-    public static void updateEpisodeTD() {
-        //todo implement
+    private static void updateEpisodeTD() {
+        int currentState = 500;
+
+        while (currentState > 1 && currentState < 1000) {
+
+            int randomWalk = (int)(Math.random() * 200) - 100;
+            if(randomWalk >= 0) randomWalk++;
+            int nextState = currentState + randomWalk;
+
+            //update TD weights on learned values
+            double[] currentStateFeatureMap = stateToFeatureMap.apply(currentState);
+            double targetValue = stateToReward.apply(currentState,nextState) + discountRate * LinAlg.dotProduct(weightsTD,stateToFeatureMap.apply(nextState));
+            weightsTD = LinAlg.add(weightsTD, LinAlg.scale(learningRate * (targetValue - LinAlg.dotProduct(weightsTD, currentStateFeatureMap)), currentStateFeatureMap));
+
+            currentState = nextState;
+        }
+
     }
 }
