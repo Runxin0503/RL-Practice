@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -21,7 +22,7 @@ public class ThousandStateRandomWalk {
     /** Weights of the 1-step Temporal Difference value function, used to approximate the actual true value function */
     private static double[] weightsTD = new double[numBuckets];
 
-    private static final Function<Integer, Double> stateToReward = state -> state == 1 ? -1 : (state == 1000 ? 1 : 0.0);
+    private static final BiFunction<Integer,Integer, Double> stateToReward = (state,nextState) -> nextState <= 1 ? -1 : (nextState >= 1000 ? 1 : 0.0);
 
     /** Given a state, maps it to a binary function feature data, where the only non-zero value is a 1
      * at the index of where the state is located (Ex: State 230 means index at state 200 to 300 has value 1). */
@@ -36,12 +37,12 @@ public class ThousandStateRandomWalk {
     private static final double discountRate = 1;
 
     /** The learning rate used in stochastic gradient descent (SGD) */
-    private static final double learningRate = 0.01;
+    private static final double learningRate = 4e-5;
 
     public static void main(String[] args) {
         for(int i=0;i<100_000;i++){
             updateStepMC();
-            System.out.println(i);
+//            System.out.println(weightsMC[0]);
         }
         for(int i : new int[]{1,101,201,301,401,501,601,701,801,901}){
             System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i),weightsMC));
@@ -52,21 +53,15 @@ public class ThousandStateRandomWalk {
     public static void updateStepMC() {
         ArrayList<Pair<Integer, Double>> stateRewards = new ArrayList<>();
         int currentState = 500;
-        stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState)));
 
-        while (currentState != 1 && currentState != 1000) {
-            boolean moveLeft = Math.random() < 0.5;
-            if (moveLeft) {
-                int maxStateMoved = currentState - Math.max(currentState - 100, 1);
-                currentState -= (int) (maxStateMoved * Math.random()) + 1;
-            } else {
-                int maxStateMoved = Math.min(currentState + 100, 1000) - currentState;
-                currentState += (int) (maxStateMoved * Math.random()) + 1;
-            }
+        while (currentState > 1 && currentState < 1000) {
 
-            assert currentState > 0 && currentState <= 1000;
+            int randomWalk = (int)(Math.random() * 200) - 100;
+            if(randomWalk >= 0) randomWalk++;
+            int nextState = currentState + randomWalk;
 
-            stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState)));
+            stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState,nextState)));
+            currentState = nextState;
         }
 
         //tempWeightsMC stores the weights before processing the episode so the weights in the equation
@@ -74,7 +69,7 @@ public class ThousandStateRandomWalk {
         double[] tempWeightsMC = weightsMC;
         for (int i = 0; i < stateRewards.size(); i++) {
             double targetValue = 0;
-            for (int j = stateRewards.size() - 1; j >= 0; j--) {
+            for (int j = stateRewards.size() - 1; j >= i; j--) {
                 targetValue = discountRate * targetValue + stateRewards.get(j).second();
             }
 
