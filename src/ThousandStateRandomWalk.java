@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -58,11 +59,20 @@ public class ThousandStateRandomWalk {
             updateEpisodeTD();
             System.out.println(i);
         }
-        for (int i : new int[]{1, 101, 201, 301, 401, 501, 601, 701, 801, 901}) {
-            System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i), weightsMC));
+        System.out.println("weightsMC: " + Arrays.toString(weightsMC));
+        System.out.println("weightsTD: " + Arrays.toString(weightsTD));
+
+        for (int i = 1; i <= 1000; i += 1000 / numBuckets) {
+            double avg = 0;
+            for (int j = 0; j < 1000 / numBuckets; j++)
+                avg += MDPValueFunction.get(i + j);
+            avg /= 1000.0 / numBuckets;
+            System.out.println((i / (1000 / numBuckets))+": "+avg);
         }
     }
 
+    /** Runs an episode of Thousand State Random Walking, since there
+     * is no action to be taken this can be applied to any learning algorithm. */
     private static List<Pair<Integer, Double>> getEpisodeData() {
         ArrayList<Pair<Integer, Double>> stateRewards = new ArrayList<>();
         int currentState = 500;
@@ -146,11 +156,11 @@ public class ThousandStateRandomWalk {
         }
 
         for (maxState--; maxState > state; maxState--) {
-                 newValuation += 0.005 * (stateToReward.apply(state, maxState) + discountRate * MDPValueFunction.get(maxState));
+            newValuation += 0.005 * (stateToReward.apply(state, maxState) + discountRate * MDPValueFunction.get(maxState));
             totalProbability += 0.005;
         }
 
-        assert Math.abs(totalProbability-1) < 1e-5 : totalProbability;
+        assert Math.abs(totalProbability - 1) < 1e-5 : totalProbability;
         return newValuation;
     }
 }
