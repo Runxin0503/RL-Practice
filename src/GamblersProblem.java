@@ -68,6 +68,7 @@ public class GamblersProblem {
         policy = newPolicy;
     }
 
+    /** Given a state s, returns the action that gives the highest expected future rewards using the law of total probabilities. */
     public static int getBestActionFromState(int state) {
         int maxAction = 0;
         double maxActionValue = Double.NEGATIVE_INFINITY;

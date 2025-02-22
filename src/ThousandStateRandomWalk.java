@@ -1,5 +1,6 @@
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -22,13 +23,16 @@ public class ThousandStateRandomWalk {
     /** Weights of the 1-step Temporal Difference value function, used to approximate the actual true value function */
     private static double[] weightsTD = new double[numBuckets];
 
-    private static final BiFunction<Integer,Integer, Double> stateToReward = (state,nextState) -> nextState == 1 ? -1 : (nextState == 1000 ? 1 : 0.0);
+    /** {@code vπ(s)}: Given a state s, returns the expected future reward of that state using the Markov Decision Process (MDP) */
+    private static HashMap<Integer, Double> MDPValueFunction;
+
+    private static final BiFunction<Integer, Integer, Double> stateToReward = (state, nextState) -> nextState == 1 ? -1 : (nextState == 1000 ? 1 : 0.0);
 
     /** Given a state, maps it to a binary function feature data, where the only non-zero value is a 1
      * at the index of where the state is located (Ex: State 230 means index at state 200 to 300 has value 1). */
     private static final Function<Integer, double[]> stateToFeatureMap = state -> {
         double[] featureMap = new double[numBuckets];
-        featureMap[(state-1) / (1000 / numBuckets)] = 1;
+        featureMap[(state - 1) / (1000 / numBuckets)] = 1;
         return featureMap;
     };
 
@@ -39,31 +43,45 @@ public class ThousandStateRandomWalk {
     /** The learning rate used in stochastic gradient descent (SGD) */
     private static final double learningRate = 4e-5;
 
+    static {
+        MDPValueFunction = new HashMap<>();
+
+        for (int state = 1; state <= 1000; state++)
+            MDPValueFunction.put(state, 0.0);
+
+        instantiateTrueValueFunction();
+    }
+
     public static void main(String[] args) {
-        for(int i=0;i<1_000_000;i++){
+        for (int i = 0; i < 1_000_000; i++) {
+            updateStepMC();
             updateEpisodeTD();
-            System.out.println(weightsTD[0]);
+            System.out.println(i);
         }
-        for(int i : new int[]{1,101,201,301,401,501,601,701,801,901}){
-            System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i),weightsTD));
+        for (int i : new int[]{1, 101, 201, 301, 401, 501, 601, 701, 801, 901}) {
+            System.out.println(LinAlg.dotProduct(stateToFeatureMap.apply(i), weightsMC));
         }
     }
 
-    /** Runs one episode of MC-algorithm and update accordingly using the update step */
-    private static void updateStepMC() {
+    private static List<Pair<Integer, Double>> getEpisodeData() {
         ArrayList<Pair<Integer, Double>> stateRewards = new ArrayList<>();
         int currentState = 500;
 
         while (currentState != 1 && currentState != 1000) {
 
-            int randomWalk = (int)(Math.random() * 200) - 100;
-            if(randomWalk >= 0) randomWalk++;
-            int nextState = Math.clamp(currentState + randomWalk,1,1000);
+            int randomWalk = (int) (Math.random() * 200) - 100;
+            if (randomWalk >= 0) randomWalk++;
+            int nextState = Math.clamp(currentState + randomWalk, 1, 1000);
 
-            stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState,nextState)));
+            stateRewards.add(new Pair<>(currentState, stateToReward.apply(currentState, nextState)));
             currentState = nextState;
         }
+        return stateRewards;
+    }
 
+    /** Runs one episode of MC-algorithm and update accordingly using the update step */
+    private static void updateStepMC() {
+        List<Pair<Integer, Double>> stateRewards = getEpisodeData();
         //tempWeightsMC stores the weights before processing the episode so the weights in the equation
         // will not change when updating
         double[] tempWeightsMC = weightsMC;
@@ -83,18 +101,56 @@ public class ThousandStateRandomWalk {
         int currentState = 500;
 
         while (currentState != 1 && currentState != 1000) {
-
-            int randomWalk = (int)(Math.random() * 200) - 100;
-            if(randomWalk >= 0) randomWalk++;
-            int nextState = Math.clamp(currentState + randomWalk,1,1000);
+            int randomWalk = (int) (Math.random() * 200) - 100;
+            if (randomWalk >= 0) randomWalk++;
+            int nextState = Math.clamp(currentState + randomWalk, 1, 1000);
 
             //update TD weights on learned values
             double[] currentStateFeatureMap = stateToFeatureMap.apply(currentState);
-            double targetValue = stateToReward.apply(currentState,nextState) + (nextState == 1 || nextState == 1000 ? 0 : discountRate * LinAlg.dotProduct(weightsTD,stateToFeatureMap.apply(nextState)));
+            double targetValue = stateToReward.apply(currentState, nextState) + (nextState == 1 || nextState == 1000 ? 0 : discountRate * LinAlg.dotProduct(weightsTD, stateToFeatureMap.apply(nextState)));
             weightsTD = LinAlg.add(weightsTD, LinAlg.scale(learningRate * (targetValue - LinAlg.dotProduct(weightsTD, currentStateFeatureMap)), currentStateFeatureMap));
 
             currentState = nextState;
         }
+    }
 
+    /** Instantiates {@link #MDPValueFunction} by calling {@link #updateMDPValue} on every state value until convergence */
+    private static void instantiateTrueValueFunction() {
+        for (int i = 0; i < 1000; i++) {
+            HashMap<Integer, Double> newMDPValueFunction = new HashMap<>();
+            for (int j = 2; j < 1000; j++)
+                newMDPValueFunction.put(j, updateMDPValue(j));
+            newMDPValueFunction.put(1, 0.0);
+            newMDPValueFunction.put(1000, 0.0);
+            MDPValueFunction = newMDPValueFunction;
+        }
+    }
+
+    /** Runs an episode of MDP algorithm to update its value function */
+    private static double updateMDPValue(int state) {
+        double newValuation = 0, totalProbability = 0;
+
+        int minState = Math.max(1, state - 100);
+        double probability = (state - 100 < 1 ? (1 - (state - 100) + 1) * 0.005 : 0.005);
+        totalProbability += probability;
+        newValuation += probability * (stateToReward.apply(state, minState) + discountRate * MDPValueFunction.get(minState));
+
+        int maxState = Math.min(1000, state + 100);
+        probability = (state + 100 > 1000 ? (state + 100 - 1000 + 1) * 0.005 : 0.005);
+        totalProbability += probability;
+        newValuation += probability * (stateToReward.apply(state, maxState) + discountRate * MDPValueFunction.get(maxState));
+
+        for (minState++; minState < state; minState++) {
+            newValuation += 0.005 * (stateToReward.apply(state, minState) + discountRate * MDPValueFunction.get(minState));
+            totalProbability += 0.005;
+        }
+
+        for (maxState--; maxState > state; maxState--) {
+                 newValuation += 0.005 * (stateToReward.apply(state, maxState) + discountRate * MDPValueFunction.get(maxState));
+            totalProbability += 0.005;
+        }
+
+        assert Math.abs(totalProbability-1) < 1e-5 : totalProbability;
+        return newValuation;
     }
 }
