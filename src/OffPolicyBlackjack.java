@@ -1,3 +1,5 @@
+import Utils.Pair;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -134,7 +136,7 @@ public class OffPolicyBlackjack {
                     return data;
                 }
 //                else if (currentSum == 21) {
-//                    data.add(new Pair<>(stateActionPair, 1.0));//win
+//                    data.add(new Utils.Pair<>(stateActionPair, 1.0));//win
 //                    return data;
 //                }
 

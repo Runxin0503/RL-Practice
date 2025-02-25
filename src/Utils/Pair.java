@@ -1,3 +1,5 @@
+package Utils;
+
 /** A pair of state and actions (Helper Class) */
 public record Pair<T, R>(T first, R second) {
 

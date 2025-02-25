@@ -1,3 +1,5 @@
+package Utils;
+
 public class LinAlg {
     public static double dotProduct(double[] first,double[] second){
         double result = 0;

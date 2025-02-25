@@ -1,3 +1,8 @@
+import Network.Activation;
+import Network.Cost;
+import Network.NN;
+import Utils.Pair;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -16,6 +21,26 @@ public class WindyHighway {
     private static final BiFunction<Pair<State, Action>, State, Double> stateTransitionToReward = (stateActionPair, state) -> Math.sin(state.x * 2 * Math.PI);
 
     private static final Function<State, Double> stateToWindValue = state -> Math.cos(state.x * 2 * Math.PI) * 0.02;
+
+    private static final NN Policy;
+
+    static {
+        Policy = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.ReLU)
+                .setOutputAF(Activation.softmax).setCostFunction(Cost.diffSquared)
+                .addDenseLayer(40).addDenseLayer(20).addDenseLayer(3).build();
+
+
+    }
+
+    public static void main(String[] args) {
+        //todo implement
+    }
+    
+    private static void updatePolicyOnEpisode() {
+        List<Pair<Pair<State,Action>,Double>> data = runEpisode();
+
+        //todo implement
+    }
 
     /** Runs an episode of naive policy gradient algorithm, returns state-action-reward tuple list */
     private static List<Pair<Pair<State, Action>, Double>> runEpisode() {
@@ -46,12 +71,18 @@ public class WindyHighway {
     }
 
     private static Action getPolicyDecision(State s) {
-        //todo implement
-        throw new UnsupportedOperationException();
+        double[] actionProbabilities = Policy.calculateOutput(new double[]{s.x,s.y});
+
+        double random = Math.random();
+        for(int i=0;i<actionProbabilities.length;i++)
+            if((random -= actionProbabilities[i]) <= 0)
+                return Action.values()[i];
+
+
+        throw new RuntimeException("Unexpected error in Policy output");
     }
 
-    private record State(double x, double y) {
-    }
+    private record State(double x, double y) {}
 
     /** Either moves just up 0.2 ~ 0.4 units, or left or right 0.2 ~ 0.4 units as well. */
     private enum Action {UPLEFT, UP, UPRIGHT}
