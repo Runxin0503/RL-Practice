@@ -53,7 +53,7 @@ public abstract class Layer {
      * Applies this layer's gradients to the parameters of this Layer.
      * <br>Updates the respective gradient velocity vectors accordingly as well.
      */
-    public abstract void applyGradient(double adjustedLearningRate, double momentum, double beta, double epsilon);
+    public abstract void applyGradient(double adjustedLearningRate, double beta, double epsilon);
 
     /** Clears this layer's gradient for its parameters with respect to the loss function */
     public abstract void clearGradient();

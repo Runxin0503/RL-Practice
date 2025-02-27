@@ -37,11 +37,10 @@ public class NN {
      * "Trains" the given Neural Network class using the given inputs and expected outputs.
      * <br>Uses RMS-Prop as training algorithm, requires Learning Rate, beta, and epsilon hyper-parameter.
      * @param learningRate a hyper-parameter dictating how fast this Neural Network 'learn' from the given inputs
-     * @param momentum a hyper-parameter dictating how much of the previous SGD velocity to keep. [0~1]
      * @param beta a hyper-parameter dictating how much of the previous RMS-Prop velocity to keep. [0~1]
      * @param epsilon a hyper-parameter that's typically very small to avoid divide by zero errors
      */
-    public static void learn(NN NN, double learningRate, double momentum, double beta, double epsilon, double[][] testCaseInputs, double[][] testCaseOutputs) {
+    public static void learn(NN NN, double learningRate, double beta, double epsilon, double[][] testCaseInputs, double[][] testCaseOutputs) {
         assert testCaseInputs.length == testCaseOutputs.length;
         for (int i = 0; i < testCaseInputs.length; ++i)
             assert testCaseInputs[i].length == NN.inputNum && testCaseOutputs[i].length == NN.outputNum;
@@ -64,7 +63,7 @@ public class NN {
                     throw new RuntimeException(e);
                 }
 
-            NN.applyGradient(learningRate / testCaseInputs.length, momentum, beta, epsilon);
+            NN.applyGradient(learningRate / testCaseInputs.length, beta, epsilon);
         }
     }
 
@@ -148,10 +147,10 @@ public class NN {
     /**
      * Applies the gradients of each layer in this Neural Network to itself
      */
-    private void applyGradient(double adjustedLearningRate, double momentum, double beta, double epsilon) {
+    private void applyGradient(double adjustedLearningRate, double beta, double epsilon) {
         assert Double.isFinite(adjustedLearningRate);
         for (Layer layer : layers)
-            layer.applyGradient(adjustedLearningRate, momentum, beta, epsilon);
+            layer.applyGradient(adjustedLearningRate, beta, epsilon);
     }
 
     @Override

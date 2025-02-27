@@ -145,7 +145,7 @@ public class ConvolutionalLayer extends Layer {
      * <br>Updates the weight and bias's gradient velocity vectors accordingly as well.
      */
     @Override
-    public void applyGradient(double adjustedLearningRate, double momentum, double beta, double epsilon) {
+    public void applyGradient(double adjustedLearningRate, double beta, double epsilon) {
         IntStream.range(0, kernelWidth).parallel().forEach(x -> {
             for (int y = 0; y < kernelHeight; y++)
                 for (int layer = 0; layer < numKernels; layer++) {

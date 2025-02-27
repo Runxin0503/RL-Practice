@@ -1,9 +1,11 @@
 import Network.Activation;
 import Network.Cost;
 import Network.NN;
+import Utils.LinAlg;
 import Utils.Pair;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -24,22 +26,38 @@ public class WindyHighway {
 
     private static final NN Policy;
 
+    private static final int discountRate = 1;
+
+    private static final double learningRate = 1e-4, momentum = 0.99, epsilon = 1e-8;
+
     static {
         Policy = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.ReLU)
                 .setOutputAF(Activation.softmax).setCostFunction(Cost.diffSquared)
                 .addDenseLayer(40).addDenseLayer(20).addDenseLayer(3).build();
-
-
     }
 
     public static void main(String[] args) {
-        //todo implement
+        for (int i = 0; i < 10_000; i++) {
+            updatePolicyOnEpisode();
+            System.out.println(i);
+        }
     }
     
     private static void updatePolicyOnEpisode() {
         List<Pair<Pair<State,Action>,Double>> data = runEpisode();
 
-        //todo implement
+        for (int i = 0; i < data.size(); i++) {
+            double targetValue = 0;
+            for (int j = data.size() - 1; j >= i; j--) {
+                targetValue = discountRate * targetValue + data.get(j).second();
+            }
+
+            State s = data.get(i).first().first();
+            double[] output = Policy.calculateOutput(new double[]{s.x, s.y});
+            double adjustedGradientMultiplier = learningRate / 2 * Math.pow(discountRate,i) * targetValue / output[data.get(i).first().second().ordinal()];
+            output[data.get(i).first().second().ordinal()] += 1;
+            NN.learn(Policy,adjustedGradientMultiplier,momentum,epsilon,new double[][]{{s.x,s.y}},new double[][]{output});
+        }
     }
 
     /** Runs an episode of naive policy gradient algorithm, returns state-action-reward tuple list */
@@ -78,8 +96,7 @@ public class WindyHighway {
             if((random -= actionProbabilities[i]) <= 0)
                 return Action.values()[i];
 
-
-        throw new RuntimeException("Unexpected error in Policy output");
+        throw new RuntimeException("Unexpected error in Policy output" + Arrays.toString(actionProbabilities));
     }
 
     private record State(double x, double y) {}
