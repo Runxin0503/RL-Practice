@@ -13,22 +13,12 @@ public abstract class Layer {
     //made public for testing purposes, was protected
     public final double[] bias;
 
-    /** The bias velocity of each neuron in this layer, used in SGD with momentum */
-    //made public for testing purposes, was protected
-    public final double[] biasVelocity;
-
-    /** The bias velocity of each neuron in this layer, used in RMS-Prop */
-    //made public for testing purposes, was protected
-    public final double[] biasVelocitySquared;
-
     /** The gradient of the bias with respect to the loss function */
     protected final double[] biasGradient;
 
     public Layer(int nodes) {
         this.nodes = nodes;
         this.bias = new double[nodes];
-        this.biasVelocity = new double[nodes];
-        this.biasVelocitySquared = new double[nodes];
         this.biasGradient = new double[nodes];
 
     }
@@ -53,7 +43,7 @@ public abstract class Layer {
      * Applies this layer's gradients to the parameters of this Layer.
      * <br>Updates the respective gradient velocity vectors accordingly as well.
      */
-    public abstract void applyGradient(double adjustedLearningRate, double beta, double epsilon);
+    public abstract void applyGradient(double adjustedLearningRate);
 
     /** Clears this layer's gradient for its parameters with respect to the loss function */
     public abstract void clearGradient();
