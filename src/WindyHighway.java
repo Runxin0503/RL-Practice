@@ -24,26 +24,42 @@ public class WindyHighway {
 
     private static final Function<State, Double> stateToWindValue = state -> Math.cos(state.x * 2 * Math.PI) * 0.02;
 
-    private static final NN Policy;
+    public static NN Policy;
 
     private static final double discountRate = 1;
 
+    private static final double epsilon = 1e-3;
+
     private static final double learningRate = 1e-5;
 
-    static {
-        Policy = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.ReLU)
-                .setOutputAF(Activation.softmax).setCostFunction(Cost.diffSquared)
-                .addDenseLayer(120).addDenseLayer(60).addDenseLayer(20)
-                .addDenseLayer(3).build();
-    }
+    public static void runTest(){main(new String[0]);}
 
     public static void main(String[] args) {
-        for (int i = 0; i < 50_000; i++) {
+        Policy = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.LeakyReLU)
+                .setOutputAF(Activation.softmax).setCostFunction(Cost.crossEntropy)
+                .addDenseLayer(40).addDenseLayer(20)
+                .addDenseLayer(3).build();
+        for (int i = 0; i < 10_000; i++) {
             updatePolicyOnEpisode();
-            System.out.println(i);
+//            System.out.println(i);
         }
         runEpisode().forEach(System.out::println);
+        System.out.println("Evaluation: "+evaluatePolicyOnEpisode());
         updatePolicyOnEpisode();
+        System.out.println("Evaluation: "+evaluatePolicyOnEpisode());
+    }
+
+    private static double evaluatePolicyOnEpisode() {
+        double reward = 0;
+        int iterations = 1000;
+
+        for(int i=0;i<iterations;i++){
+            List<Pair<Pair<State,Action>,Double>> data = runEpisode();
+            for(Pair<Pair<State,Action>,Double> pair : data){
+                reward += pair.second();
+            }
+        }
+        return reward / iterations;
     }
     
     private static void updatePolicyOnEpisode() {
@@ -58,8 +74,18 @@ public class WindyHighway {
 
             State s = data.get(i).first().first();
             double[] output = Policy.calculateOutput(new double[]{s.x, s.y});
-            double adjustedGradientMultiplier = learningRate * Math.pow(discountRate,i) * targetValue / output[data.get(i).first().second().ordinal()];
-            output[data.get(i).first().second().ordinal()] = adjustedGradientMultiplier >= 0 ? 1 : 0;
+            double adjustedGradientMultiplier = learningRate * Math.pow(discountRate,i) * targetValue / (output[data.get(i).first().second().ordinal()] + epsilon);
+            if(adjustedGradientMultiplier >= 0) {
+                output = new double[3];
+                output[data.get(i).first().second().ordinal()] = 1;
+            }
+            else{
+                output[data.get(i).first().second().ordinal()] = 0;
+                double sum = output[0] + output[1] + output[2];
+                output[0] /= sum;
+                output[1] /= sum;
+                output[2] /= sum;
+            }
             NN.learn(Policy,Math.abs(adjustedGradientMultiplier),new double[][]{{s.x,s.y}},new double[][]{output});
         }
     }

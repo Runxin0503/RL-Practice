@@ -19,17 +19,22 @@ public class NN {
     public final Layer[] layers;
 
     /**
-     * The java.Activation Function for hidden layers in this Neural Network
+     * The value for encouraging exploration in softmax (discrete) actions in a Reinforcement Learning environment
+     */
+    private final double temperature;
+
+    /**
+     * The Activation Function for hidden layers in this Neural Network
      */
     private final Activation hiddenAF;
 
     /**
-     * The java.Activation Function for the output / final layer in this Neural Network
+     * The Activation Function for the output / final layer in this Neural Network
      */
     private final Activation outputAF;
 
     /**
-     * The java.Cost Function for this Neural Network
+     * The Cost Function for this Neural Network
      */
     private final Cost costFunction;
 
@@ -65,11 +70,12 @@ public class NN {
         }
     }
 
-    private NN(int inputNum, int outputNum, Activation hiddenAF, Activation outputAF, Cost costFunction, Layer[] layers) {
+    private NN(int inputNum, int outputNum, double temperature,Activation hiddenAF, Activation outputAF, Cost costFunction, Layer[] layers) {
         this.inputNum = inputNum;
         this.outputNum = outputNum;
         this.layers = layers;
 
+        this.temperature = temperature;
         this.hiddenAF = hiddenAF;
         this.outputAF = outputAF;
         this.costFunction = costFunction;
@@ -82,6 +88,7 @@ public class NN {
      * {@code output} array of predictions
      */
     public double[] calculateOutput(double[] input) {
+        //todo use temperature for softmax
         assert input.length == inputNum;
 
         double[] result = layers[0].calculateWeightedOutput(input);
@@ -119,6 +126,7 @@ public class NN {
      * backpropagation.
      */
     public void backPropagate(double[] input, double[] expectedOutput) {
+        //todo use temperature for softmax
         double[][] zs = new double[layers.length][];
         double[][] xs = new double[layers.length][];
         xs[0] = input;
@@ -170,6 +178,7 @@ public class NN {
         private Activation hiddenAF = null;
         private Activation outputAF = null;
         private Cost costFunction = null;
+        private double temperature = 1;
         private final ArrayList<Layer> layers = new ArrayList<>();
 
         public NetworkBuilder setInputNum(int inputNum) {
@@ -199,13 +208,18 @@ public class NN {
             this.costFunction = costFunction;
             return this;
         }
+        
+        public NetworkBuilder setTemperature(double temperature) {
+            this.temperature = temperature;
+            return this;
+        }
 
         public NN build() throws MissingInformationException {
             if (inputNum == -1 || outputNum == -1 || hiddenAF == null || outputAF == null || costFunction == null || layers.isEmpty())
                 throw new MissingInformationException();
             for (Layer layer : layers)
                 layer.initialize(Activation.getInitializer(hiddenAF,inputNum,outputNum));
-            return new NN(inputNum, outputNum, hiddenAF, outputAF, costFunction, layers.toArray(new Layer[0]));
+            return new NN(inputNum, outputNum, temperature,hiddenAF, outputAF, costFunction, layers.toArray(new Layer[0]));
         }
     }
 
