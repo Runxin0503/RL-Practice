@@ -88,13 +88,17 @@ public class NN {
      * {@code output} array of predictions
      */
     public double[] calculateOutput(double[] input) {
-        //todo use temperature for softmax
         assert input.length == inputNum;
 
         double[] result = layers[0].calculateWeightedOutput(input);
         for (int i = 1; i < layers.length; i++) {
             result = layers[i].calculateWeightedOutput(hiddenAF.calculate(result));
         }
+
+        //exploration vs exploitation. Apply temperature in softmax function for RL algorithms
+        if (outputAF == Activation.softmax)
+            for(int i=0;i<result.length;i++)
+                result[i] /= temperature;
 
         result = outputAF.calculate(result);
 
@@ -126,8 +130,9 @@ public class NN {
      * backpropagation.
      */
     public void backPropagate(double[] input, double[] expectedOutput) {
-        //todo use temperature for softmax
+        //the output of each layer at index i
         double[][] zs = new double[layers.length][];
+        //the input of each layer at index i
         double[][] xs = new double[layers.length][];
         xs[0] = input;
         for(int i=0;i<layers.length-1;i++){
@@ -135,7 +140,14 @@ public class NN {
             xs[i+1] = hiddenAF.calculate(zs[i]);
         }
         zs[layers.length-1] = layers[layers.length-1].calculateWeightedOutput(xs[layers.length-1]);
+        if (outputAF == Activation.softmax)
+            for(int i=0;i<zs[layers.length-1].length;i++)
+                zs[layers.length-1][i] /= temperature;
+
         double[] output = outputAF.calculate(zs[layers.length-1]);
+        if(outputAF == Activation.softmax)
+            for(int i=0;i<output.length;i++)
+                output[i] /= temperature;
 
         double[] outputLayer_dz_dC = outputAF.derivative(zs[layers.length-1],costFunction.derivative(output,expectedOutput));
         double[] nextLayer_da_dC = layers[layers.length-1].updateGradient(outputLayer_dz_dC,xs[layers.length-1]);

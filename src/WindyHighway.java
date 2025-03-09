@@ -38,7 +38,7 @@ public class WindyHighway {
         Policy = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.LeakyReLU)
                 .setOutputAF(Activation.softmax).setCostFunction(Cost.crossEntropy)
                 .addDenseLayer(40).addDenseLayer(20)
-                .addDenseLayer(3).build();
+                .addDenseLayer(3).setTemperature(5).build(); //10 5 1
         for (int i = 0; i < 10_000; i++) {
             updatePolicyOnEpisode();
 //            System.out.println(i);

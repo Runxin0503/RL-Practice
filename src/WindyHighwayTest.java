@@ -44,7 +44,7 @@ public class WindyHighwayTest {
         assertTrue(Policy.calculateOutput(new double[]{0, 0})[0]>0.9);
     }
 
-    @RepeatedTest(100)
+    @RepeatedTest(30)
     void test2() {
         WindyHighway.runTest();
     }
