@@ -30,6 +30,7 @@ public class ThousandStateRandomWalk {
     /** {@code vπ(s)}: Given a state s, returns the expected future reward of that state using the Markov Decision Process (MDP) */
     private static HashMap<Integer, Double> MDPValueFunction;
 
+    /** Given state transition, returns the reward. (1 if transitioning into state 1000, -1 if transitioning into state 1, 0 otherwise) */
     private static final BiFunction<Integer, Integer, Double> stateToReward = (state, nextState) -> nextState == 1 ? -1 : (nextState == 1000 ? 1 : 0.0);
 
     /** Given a state, maps it to a binary function feature data, where the only non-zero value is a 1

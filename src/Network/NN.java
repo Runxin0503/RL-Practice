@@ -21,7 +21,7 @@ public class NN {
     /**
      * The value for encouraging exploration in softmax (discrete) actions in a Reinforcement Learning environment
      */
-    private final double temperature;
+    private double temperature;
 
     /**
      * The Activation Function for hidden layers in this Neural Network
@@ -81,6 +81,12 @@ public class NN {
         this.costFunction = costFunction;
 
         clearGradient();
+    }
+
+    /** Sets the temperature (exploration) value of this Neural Network.
+     * <br>Only affects the output when {@link #outputAF} is {@link Activation#softmax} */
+    public void setTemperature(double temperature) {
+        this.temperature = temperature;
     }
 
     /**
