@@ -28,12 +28,20 @@ public class WindyHighway {
     /** {@code π(s)}: Given State s, returns the probability of taking either of the 3 valid actions in {@link Action} */
     public static NN Policy;
 
+    /** {@code vπ(s)}: Given State s, returns the expected future returns assuming {@link #Policy} is followed.
+     * <br>Used as a baseline function in REINFORCE algorithm. */
+    public static NN valueFunction;
+
     /** The Discount Rate Parameter of the WindyHighway problem.
      * Set to 1 to not value future rewards any less than present ones */
     private static final double discountRate = 1;
 
     /** {@code alpha (α)}, otherwise known as the step size, controls the learning rate of the policy and how fast it converges. */
     private static final double learningRate = 1e-5;
+
+    /** Similar to {@link #learningRate}, except used in value function learning.
+     * <br>Value function must learn faster than Policy itself, so this learning rate must be higher than {@link #learningRate}. */
+    private static final double valueFunctionLearningRate = 1e-3;
 
     /** The parameter controlling the exploratory nature of {@link #Policy}.
      * <br>Higher the temperature, higher the Policy will explore and vice versa. */
@@ -47,7 +55,12 @@ public class WindyHighway {
         Policy = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.LeakyReLU)
                 .setOutputAF(Activation.softmax).setCostFunction(Cost.crossEntropy)
                 .addDenseLayer(40).addDenseLayer(20)
-                .addDenseLayer(3).setTemperature(temperature).build(); //10 5 1
+                .addDenseLayer(3).setTemperature(temperature).build();
+        valueFunction = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.LeakyReLU)
+                .setOutputAF(Activation.none).setCostFunction(Cost.diffSquared)
+                .addDenseLayer(40).addDenseLayer(20).addDenseLayer(1)
+                .setTemperature(1).build();
+
         for (int i = 0; i < 10_000; i++) {
             updatePolicyOnEpisode();
 //            System.out.println(i);
@@ -79,22 +92,27 @@ public class WindyHighway {
     /**
      * Runs an episode of WindyHighway to collect data, then execute the following algorithm to update policy for every state action pair (s,a):
      * <br>1. Calculate the future returns of reward discounted over time (targetValue) at state s after taking action a.
-     * <br>2. Adjusted-learning-rate = learningRate * discountRate^t * targetValue / π(s,a)
-     * <br>3. Sets expectedOutput to either [1,0,0] or [0,x,y] where x + y = 1 depending on if Adjusted-learning-rate is positive or negative.
-     * <br>4. Calls {@link NN#learn} on these parameters
+     * <br>2. Calculate the advantage value by subtracting vπ(s) from targetValue
+     * <br>3. Calls {@link NN#learn} on value function to update it using the targetValue
+     * <br>4. Adjusted-learning-rate = learningRate * discountRate^t * targetValue / π(s,a)
+     * <br>5. Sets expectedOutput to either [1,0,0] or [0,x,y] where x + y = 1 depending on if Adjusted-learning-rate is positive or negative.
+     * <br>6. Calls {@link NN#learn} on these parameters to update the Policy using the advantage value
      */
     private static void updatePolicyOnEpisode() {
         List<Pair<Pair<State, Action>, Double>> data = runEpisode();
+        int x = 0;
 
         for (int i = 0; i < data.size(); i++) {
-            double targetValue = 0;
-            for (int j = data.size() - 1; j >= i; j--) {
-                targetValue = discountRate * targetValue + data.get(j).second();
-            }
-
             State s = data.get(i).first().first();
+            double targetValue = 0;
+            for (int j = data.size() - 1; j >= i; j--)
+                targetValue = discountRate * targetValue + data.get(j).second();
+            double advantageValue = targetValue - valueFunction.calculateOutput(new double[]{s.x,s.y})[0];
+
+            NN.learn(valueFunction,valueFunctionLearningRate,new double[][]{{s.x, s.y}},new double[][]{{targetValue}});
+
             double[] output = Policy.calculateOutput(new double[]{s.x, s.y});
-            double adjustedGradientMultiplier = learningRate * Math.pow(discountRate, i) * targetValue / (output[data.get(i).first().second().ordinal()] + 1e-3);
+            double adjustedGradientMultiplier = learningRate * Math.pow(discountRate, i) * advantageValue / (output[data.get(i).first().second().ordinal()] + 1e-3);
             if (adjustedGradientMultiplier >= 0) {
                 output = new double[3];
                 output[data.get(i).first().second().ordinal()] = 1;
