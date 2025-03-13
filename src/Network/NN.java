@@ -1,6 +1,7 @@
 package Network;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class NN {
     /**
@@ -39,11 +40,19 @@ public class NN {
     private final Cost costFunction;
 
     /**
-     * "Trains" the given Neural Network class using the given inputs and expected outputs.
-     * <br>Uses RMS-Prop as training algorithm, requires Learning Rate, beta, and epsilon hyper-parameter.
-     * @param learningRate a hyper-parameter dictating how fast this Neural Network 'learn' from the given inputs
+     * The Optimizer class used for this Neural Network's backpropagation and training process.
      */
-    public static void learn(NN NN, double learningRate, double[][] testCaseInputs, double[][] testCaseOutputs) {
+    private final Optimizer optimizer;
+
+    /**
+     * "Trains" the given Neural Network class using the given inputs and expected outputs.
+     * <br>Uses ADAM as training algorithm, requires Learning Rate, beta, and epsilon hyper-parameter.
+     * @param learningRate a hyper-parameter dictating how fast this Neural Network 'learn' from the given inputs
+     * @param momentum a hyper-parameter dictating how much of the previous SGD velocity to keep. [0~1]
+     * @param beta a hyper-parameter dictating how much of the previous RMS-Prop velocity to keep. [0~1]
+     * @param epsilon a hyper-parameter that's typically very small to avoid divide by zero errors
+     */
+    public static void learn(NN NN, double learningRate, double momentum, double beta, double epsilon, double[][] testCaseInputs, double[][] testCaseOutputs) {
         assert testCaseInputs.length == testCaseOutputs.length;
         for (int i = 0; i < testCaseInputs.length; ++i)
             assert testCaseInputs[i].length == NN.inputNum && testCaseOutputs[i].length == NN.outputNum;
@@ -66,14 +75,37 @@ public class NN {
                     throw new RuntimeException(e);
                 }
 
-            NN.applyGradient(learningRate / testCaseInputs.length);
+            NN.applyGradient(NN.optimizer,learningRate / testCaseInputs.length, momentum, beta, epsilon);
         }
     }
 
-    private NN(int inputNum, int outputNum, double temperature,Activation hiddenAF, Activation outputAF, Cost costFunction, Layer[] layers) {
+    /**
+     * Runs the optimizer in this Neural Network class with the given input and a single expected output.
+     * <br>Unlike {@link #learn}, this function does backpropagation on a single output element instead of an entire output vector.
+     * <br>Uses ADAM as training algorithm, requires Learning Rate, beta, and epsilon hyper-parameter.
+     * @param learningRate a hyper-parameter dictating how fast this Neural Network 'learn' from the given inputs
+     * @param momentum a hyper-parameter dictating how much of the previous SGD velocity to keep. [0~1]
+     * @param beta a hyper-parameter dictating how much of the previous RMS-Prop velocity to keep. [0~1]
+     * @param epsilon a hyper-parameter that's typically very small to avoid divide by zero errors
+     * @param outputIndex the index of the element to optimize
+     */
+    public static void learnSingleOutput(NN NN,double learningRate, double momentum, double beta, double epsilon, double[] input, int outputIndex, double expectedOutput) {
+        synchronized (NN) {
+            double[] output = NN.calculateOutput(input);
+            assert 0 <= outputIndex && outputIndex < NN.outputNum;
+            output[outputIndex] = expectedOutput;
+
+            NN.clearGradient();
+            NN.backPropagate(input,output);
+            NN.applyGradient(NN.optimizer,learningRate, momentum, beta, epsilon);
+        }
+    }
+
+    private NN(Optimizer optimizer,int inputNum, int outputNum, double temperature,Activation hiddenAF, Activation outputAF, Cost costFunction, Layer[] layers) {
         this.inputNum = inputNum;
         this.outputNum = outputNum;
         this.layers = layers;
+        this.optimizer = optimizer;
 
         this.temperature = temperature;
         this.hiddenAF = hiddenAF;
@@ -136,9 +168,7 @@ public class NN {
      * backpropagation.
      */
     public void backPropagate(double[] input, double[] expectedOutput) {
-        //the output of each layer at index i
         double[][] zs = new double[layers.length][];
-        //the input of each layer at index i
         double[][] xs = new double[layers.length][];
         xs[0] = input;
         for(int i=0;i<layers.length-1;i++){
@@ -171,10 +201,10 @@ public class NN {
     /**
      * Applies the gradients of each layer in this Neural Network to itself
      */
-    private void applyGradient(double adjustedLearningRate) {
+    private void applyGradient(Optimizer optimizer, double adjustedLearningRate, double momentum, double beta, double epsilon) {
         assert Double.isFinite(adjustedLearningRate);
         for (Layer layer : layers)
-            layer.applyGradient(adjustedLearningRate);
+            layer.applyGradient(optimizer,adjustedLearningRate, momentum, beta, epsilon);
     }
 
     @Override
@@ -191,12 +221,30 @@ public class NN {
         return sb.toString();
     }
 
+    @Override
+    public Object clone() {
+        Layer[] newLayers = new Layer[layers.length];
+        for(int i=0;i<layers.length;i++) newLayers[i] = (Layer)layers[i].clone();
+        return new NN(optimizer,inputNum, outputNum, temperature, hiddenAF, outputAF, costFunction, newLayers);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if(!(obj instanceof NN o)) return false;
+        return inputNum == o.inputNum && outputNum == o.outputNum &&
+                temperature == o.temperature &&
+                hiddenAF == o.hiddenAF && outputAF == o.outputAF &&
+                costFunction == o.costFunction &&
+                Arrays.equals(layers, o.layers);
+    }
+
     public static class NetworkBuilder {
         private int inputNum = -1, outputNum = -1;
         private Activation hiddenAF = null;
         private Activation outputAF = null;
         private Cost costFunction = null;
         private double temperature = 1;
+        private Optimizer optimizer = Optimizer.ADAM;
         private final ArrayList<Layer> layers = new ArrayList<>();
 
         public NetworkBuilder setInputNum(int inputNum) {
@@ -208,6 +256,21 @@ public class NN {
         public NetworkBuilder addDenseLayer(int nodes) {
             if (layers.isEmpty()) layers.add(new DenseLayer(inputNum, nodes));
             else layers.add(new DenseLayer(layers.getLast().nodes, nodes));
+            outputNum = layers.getLast().nodes;
+            return this;
+        }
+
+        public NetworkBuilder addConvolutionalLayer(int inputWidth, int inputHeight, int inputLength,
+                                                    int kernelWidth, int kernelHeight, int numKernels,
+                                                    int strideWidth, int strideHeight) {
+            return addConvolutionalLayer(inputWidth,inputHeight,inputLength,kernelWidth,kernelHeight,numKernels,strideWidth,strideHeight,false);
+        }
+
+        public NetworkBuilder addConvolutionalLayer(int inputWidth, int inputHeight, int inputLength,
+                                                    int kernelWidth, int kernelHeight, int numKernels,
+                                                    int strideWidth, int strideHeight,boolean padding) {
+            assert (layers.isEmpty() ? inputNum : layers.getLast().nodes) == inputWidth * inputHeight * inputLength;
+            layers.add(new ConvolutionalLayer(inputWidth, inputHeight, inputLength, kernelWidth, kernelHeight, numKernels, strideWidth, strideHeight, padding));
             outputNum = layers.getLast().nodes;
             return this;
         }
@@ -226,18 +289,23 @@ public class NN {
             this.costFunction = costFunction;
             return this;
         }
-        
+
         public NetworkBuilder setTemperature(double temperature) {
             this.temperature = temperature;
             return this;
         }
 
+        public NetworkBuilder setOptimizer(Optimizer optimizer){
+            this.optimizer = optimizer;
+            return this;
+        }
+
         public NN build() throws MissingInformationException {
-            if (inputNum == -1 || outputNum == -1 || hiddenAF == null || outputAF == null || costFunction == null || layers.isEmpty())
+            if (inputNum == -1 || outputNum == -1 || hiddenAF == null || outputAF == null || costFunction == null || layers.isEmpty() || optimizer == null)
                 throw new MissingInformationException();
             for (Layer layer : layers)
-                layer.initialize(Activation.getInitializer(hiddenAF,inputNum,outputNum));
-            return new NN(inputNum, outputNum, temperature,hiddenAF, outputAF, costFunction, layers.toArray(new Layer[0]));
+                layer.initialize(Activation.getInitializer(hiddenAF,inputNum,outputNum),optimizer);
+            return new NN(optimizer,inputNum, outputNum, temperature, hiddenAF, outputAF, costFunction, layers.toArray(new Layer[0]));
         }
     }
 

@@ -10,9 +10,9 @@ import java.util.function.Supplier;
 public enum Activation {
     none(input -> {
         double[] output = new double[input.length];
-        System.arraycopy(input, 0, output, 0, input.length);
+        System.arraycopy(input,0,output,0,input.length);
         return output;
-    }, (input, gradient) -> {
+    },(input,gradient) -> {
         double[] output = new double[input.length];
         //input will always be 1 with respect to output
         System.arraycopy(gradient, 0, output, 0, input.length);
@@ -22,7 +22,7 @@ public enum Activation {
         double[] output = new double[input.length];
         for (int i = 0; i < input.length; i++) output[i] = (input[i] > 0 ? input[i] : 0);
         return output;
-    }, (input, gradient) -> {
+    }, (input,gradient) -> {
         double[] output = new double[input.length];
         for (int i = 0; i < input.length; i++) output[i] = gradient[i] * (input[i] > 0 ? 1.0 : 0);
         return output;
@@ -31,11 +31,11 @@ public enum Activation {
         double[] output = new double[input.length];
         for (int i = 0; i < input.length; i++) output[i] = 1 / (1 + Math.exp(-input[i]));
         return output;
-    }, (input, gradient) -> {
+    }, (input,gradient) -> {
         double[] output = new double[input.length];
-        for (int i = 0; i < input.length; i++) {
-            double a = 1 / (1 + Math.exp(-input[i]));
-            output[i] = gradient[i] * a * (1 - a);
+        for (int i = 0; i < input.length; i++){
+            double a = 1/(1+Math.exp(-input[i]));
+            output[i] = gradient[i] * a * (1-a);
         }
         return output;
     }),
@@ -44,11 +44,11 @@ public enum Activation {
         for (int i = 0; i < input.length; i++)
             output[i] = Math.tanh(input[i]);
         return output;
-    }, (input, gradient) -> {
+    },(input,gradient) -> {
         double[] output = new double[input.length];
         for (int i = 0; i < input.length; i++) {
             double tanhValue = Math.tanh(input[i]);
-            output[i] = gradient[i] * (1 - tanhValue * tanhValue);
+            output[i] = gradient[i] * (1-tanhValue*tanhValue);
         }
         return output;
     }),
@@ -58,12 +58,12 @@ public enum Activation {
         return output;
     }, (input, gradient) -> {
         double[] output = new double[input.length];
-        for (int i = 0; i < input.length; i++) output[i] = gradient[i] * (input[i] > 0 ? 1.0 : 0.1);
+        for(int i = 0; i < input.length; i++) output[i] = gradient[i] * (input[i] > 0 ? 1.0 : 0.1);
         return output;
     }),
     softmax(input -> {
         double[] output = new double[input.length];
-        double latestInputSum = 0, max = Double.MIN_VALUE;
+        double latestInputSum = 0,max = Double.MIN_VALUE;
         for (double num : input) max = Math.max(max, num);
         for (double num : input) latestInputSum += Math.exp(num - max);
         for (int i = 0; i < input.length; i++) output[i] = Math.exp(input[i] - max) / latestInputSum;
@@ -71,7 +71,7 @@ public enum Activation {
     }, (input, gradient) -> {
         double[] output = new double[input.length];
         double[] softmaxOutput = new double[input.length];
-        double latestInputSum = 0, max = Double.MIN_VALUE;
+        double latestInputSum = 0,max = Double.MIN_VALUE;
         for (double num : input) max = Math.max(max, num);
         for (double num : input) latestInputSum += Math.exp(num - max);
         for (int i = 0; i < input.length; i++) softmaxOutput[i] = Math.exp(input[i] - max) / latestInputSum;
@@ -90,24 +90,22 @@ public enum Activation {
     });
 
     private static final Random RANDOM = new Random();
-    private static final BiFunction<Integer, Integer, Double> HE_Initialization = (inputSize, outputSize) -> RANDOM.nextGaussian(0, Math.sqrt(2.0 / (inputSize + outputSize)));
-    private static final BiFunction<Integer, Integer, Double> XAVIER_Initialization = (inputSize, outputSize) -> RANDOM.nextGaussian(0, Math.sqrt(1 / Math.sqrt(inputSize + outputSize)));
+    private static final BiFunction<Integer,Integer,Double> HE_Initialization = (inputSize,outputSize)->RANDOM.nextGaussian(0,Math.sqrt(2.0/(inputSize+outputSize)));
+    private static final BiFunction<Integer,Integer,Double> XAVIER_Initialization = (inputSize,outputSize)->RANDOM.nextGaussian(0,Math.sqrt(1/Math.sqrt(inputSize+outputSize)));
 
-    private final Function<double[], double[]> function;
-    private final BiFunction<double[], double[], double[]> derivativeFunction;
 
-    Activation(Function<double[], double[]> function, BiFunction<double[], double[], double[]> derivativeFunction) {
+    private final Function<double[],double[]> function;
+    private final BiFunction<double[],double[],double[]> derivativeFunction;
+    Activation(Function<double[],double[]> function,BiFunction<double[],double[],double[]> derivativeFunction) {
         this.function = function;
         this.derivativeFunction = derivativeFunction;
     }
 
     /** Returns the result of AF(x) for every x in {@code input} array*/
     public double[] calculate(double[] input) {
-        for (double v : input)
-            assert Double.isFinite(v) : "Attempted to input invalid values into Activation Function " + Arrays.toString(input);
+        for(double v : input) assert Double.isFinite(v) : "Attempted to input invalid values into Activation Function " + Arrays.toString(input);
         double[] output = this.function.apply(input);
-        for (double v : output)
-            assert Double.isFinite(v) : "Activation Function returning invalid values " + Arrays.toString(input) + "\n" + Arrays.toString(output);
+        for(double v : output) assert Double.isFinite(v) : "Activation Function returning invalid values " + Arrays.toString(input) + "\n" + Arrays.toString(output);
         return output;
     }
 
@@ -116,19 +114,17 @@ public enum Activation {
      * @return {@code dz_dC}
      */
     public double[] derivative(double[] z, double[] da_dC) {
-        for (double v : da_dC)
-            assert Double.isFinite(v) : "Attempted to input invalid values into Deriv of Activation Function " + Arrays.toString(z) + "  " + Arrays.toString(da_dC);
+        for(double v : da_dC) assert Double.isFinite(v) : "Attempted to input invalid values into Deriv of Activation Function " + Arrays.toString(z) + "  " + Arrays.toString(da_dC);
         double[] newGradient = this.derivativeFunction.apply(z, da_dC);
-        for (double v : newGradient)
-            assert Double.isFinite(v) : "Deriv of Activation Function returning invalid values " + Arrays.toString(z) + "  " + Arrays.toString(da_dC) + "\n" + Arrays.toString(newGradient);
+        for(double v : newGradient) assert Double.isFinite(v) : "Deriv of Activation Function returning invalid values " + Arrays.toString(z) + "  " + Arrays.toString(da_dC) + "\n" + Arrays.toString(newGradient);
         return newGradient;
     }
 
     /**
      * Returns the weights and bias initializer supplier best associated with {@code AF} function
      */
-    public static Supplier<Double> getInitializer(Activation AF, int inputNum, int outputNum) {
-        if (AF.equals(ReLU) || AF.equals(LeakyReLU)) return () -> HE_Initialization.apply(inputNum, outputNum);
-        else return () -> XAVIER_Initialization.apply(inputNum, outputNum);
+    public static Supplier<Double> getInitializer(Activation AF,int inputNum,int outputNum){
+        if(AF.equals(ReLU) || AF.equals(LeakyReLU)) return ()->HE_Initialization.apply(inputNum,outputNum);
+        else return ()->XAVIER_Initialization.apply(inputNum,outputNum);
     }
 }

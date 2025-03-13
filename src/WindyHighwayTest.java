@@ -38,7 +38,7 @@ public class WindyHighwayTest {
                 output[1] /= sum;
                 output[2] /= sum;
             }
-            NN.learn(Policy,Math.abs(adjustedGradientMultiplier),new double[][]{{x,y}},new double[][]{output});
+            NN.learn(Policy,Math.abs(adjustedGradientMultiplier),0,0,0,new double[][]{{x,y}},new double[][]{output});
         }
         System.out.println(Arrays.toString(Policy.calculateOutput(new double[]{0, 0})));
         assertTrue(Policy.calculateOutput(new double[]{0, 0})[0]>0.9);
