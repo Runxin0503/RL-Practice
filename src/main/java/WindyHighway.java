@@ -48,10 +48,6 @@ public class WindyHighway {
      * <br>Higher the temperature, higher the Policy will explore and vice versa. */
     private static final double temperature = 5;
 
-    public static void runTest() {
-        main(new String[0]);
-    }
-
     public static void main(String[] args) {
         Policy = new NN.NetworkBuilder().setInputNum(2).setHiddenAF(Activation.LeakyReLU)
                 .setOutputAF(Activation.softmax).setCostFunction(Cost.crossEntropy)

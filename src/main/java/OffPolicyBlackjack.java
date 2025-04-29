@@ -19,15 +19,15 @@ import java.util.List;
 public class OffPolicyBlackjack {
 
     /** {@code qπ(s,a)}: Given state s and action a, returns the expected future reward of the state action pair assuming {@link #policy} is followed afterward */
-    private static HashMap<Pair<State, Action>, Double> actionValueFunction;
+    private static final HashMap<Pair<State, Action>, Double> actionValueFunction;
 
     /** {@code b(s,a)}: Given a State s and (valid) Action a, returns the probability of taking Action a in State s.
      * Serves as an exploration policy purely to collect data to train the target policy. */
-    private static HashMap<Pair<State, Action>, Double> behaviorPolicy;
+    private static final HashMap<Pair<State, Action>, Double> behaviorPolicy;
 
     /** {@code π(s)}: Given State s, returns the Action a the policy takes in State s.
      * Serves as the target policy that will approximate the optimal policy. */
-    private static HashMap<State, Action> policy;
+    private static final HashMap<State, Action> policy;
 
     /** {@code α}, otherwise known as the step size, controls the learning rate of the policy and how fast it converges */
     private static final double alpha = 2e-4;

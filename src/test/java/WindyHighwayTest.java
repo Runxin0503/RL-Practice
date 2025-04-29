@@ -46,6 +46,6 @@ public class WindyHighwayTest {
 
     @RepeatedTest(30)
     void test2() {
-        WindyHighway.runTest();
+        WindyHighway.main(new String[0]);
     }
 }
