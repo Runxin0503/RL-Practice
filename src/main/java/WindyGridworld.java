@@ -190,7 +190,6 @@ public class WindyGridworld {
         }
     }
 
-
     /** Runs one episode of either Q-Learning or expectedSARSA, which doesn't require the 5-tuple (s,a,r,s',a') and instead only requires the 4-tuple (s,a,r,s').
      * Calls {@link #updateSARSA} every time the 4-tuple is accumulated. */
     private static void run4TupleAlgorithmEpisode(HashMap<Pair<State, Action>, Double> policy, HashMap<Pair<State, Action>, Double> actionValueFunction) {
