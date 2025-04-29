@@ -1,4 +1,4 @@
-import Utils.LinAlg;
+import Network.Linalg;
 import Utils.Pair;
 
 import java.util.ArrayList;
@@ -106,7 +106,7 @@ public class ThousandStateRandomWalk {
             }
 
             double[] stateFeatureMap = stateToFeatureMap.apply(stateRewards.get(i).first());
-            weightsMC = LinAlg.add(weightsMC, LinAlg.scale(learningRate * (targetValue - LinAlg.dotProduct(tempWeightsMC, stateFeatureMap)), stateFeatureMap));
+            weightsMC = Linalg.add(weightsMC, Linalg.scale(learningRate * (targetValue - Linalg.dotProduct(tempWeightsMC, stateFeatureMap)), stateFeatureMap));
         }
     }
 
@@ -121,8 +121,8 @@ public class ThousandStateRandomWalk {
 
             //update TD weights on learned values
             double[] currentStateFeatureMap = stateToFeatureMap.apply(currentState);
-            double targetValue = stateToReward.apply(currentState, nextState) + (nextState == 1 || nextState == 1000 ? 0 : discountRate * LinAlg.dotProduct(weightsTD, stateToFeatureMap.apply(nextState)));
-            weightsTD = LinAlg.add(weightsTD, LinAlg.scale(learningRate * (targetValue - LinAlg.dotProduct(weightsTD, currentStateFeatureMap)), currentStateFeatureMap));
+            double targetValue = stateToReward.apply(currentState, nextState) + (nextState == 1 || nextState == 1000 ? 0 : discountRate * Linalg.dotProduct(weightsTD, stateToFeatureMap.apply(nextState)));
+            weightsTD = Linalg.add(weightsTD, Linalg.scale(learningRate * (targetValue - Linalg.dotProduct(weightsTD, currentStateFeatureMap)), currentStateFeatureMap));
 
             currentState = nextState;
         }
